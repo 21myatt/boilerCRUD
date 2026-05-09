@@ -2,13 +2,12 @@ import { useMemo } from "react";
 import { createUsersClient } from "@imsys/api-client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ManagedUserCreateInput, ManagedUserUpdateInput } from "@imsys/types";
-
-const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:4000";
+import { apiBaseUrl } from "../../lib/api-base-url";
 
 export const useUsersResource = (accessToken: string | null) => {
   const queryClient = useQueryClient();
   const client = useMemo(
-    () => createUsersClient(apiUrl, { getAccessToken: () => accessToken }),
+    () => createUsersClient(apiBaseUrl, { getAccessToken: () => accessToken }),
     [accessToken]
   );
 

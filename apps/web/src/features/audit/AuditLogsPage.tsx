@@ -5,8 +5,7 @@ import type { ResourceDefinition } from "@imsys/types";
 import { useAuth } from "../../app/auth/AuthProvider";
 import { ResourceCollectionCard } from "../../design-system/patterns/resources/ResourceCollectionCard";
 import { ResourcePageHeader } from "../../design-system/patterns/resources/ResourcePageHeader";
-
-const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:4000";
+import { apiBaseUrl } from "../../lib/api-base-url";
 
 const resource: ResourceDefinition<unknown> = {
   key: "audit",
@@ -34,7 +33,7 @@ export const AuditLogsPage = () => {
   const { session } = useAuth();
   const accessToken = session?.access_token ?? null;
   const client = useMemo(
-    () => createAuditLogsClient(apiUrl, { getAccessToken: () => accessToken }),
+    () => createAuditLogsClient(apiBaseUrl, { getAccessToken: () => accessToken }),
     [accessToken]
   );
 

@@ -3,13 +3,12 @@ import { createItemsClient } from "@imsys/api-client";
 import { useResourceCollection } from "@imsys/client";
 import type { ItemCreateInput, ItemUpdateInput } from "@imsys/types";
 import { useTranslation } from "react-i18next";
-
-const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:4000";
+import { apiBaseUrl } from "../../lib/api-base-url";
 
 export const useItemsResource = (accessToken: string | null) => {
   const { t } = useTranslation("errors");
   const client = useMemo(
-    () => createItemsClient(apiUrl, { getAccessToken: () => accessToken }),
+    () => createItemsClient(apiBaseUrl, { getAccessToken: () => accessToken }),
     [accessToken]
   );
 

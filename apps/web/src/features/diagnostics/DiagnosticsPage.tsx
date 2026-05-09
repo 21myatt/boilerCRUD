@@ -4,14 +4,13 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../../app/auth/AuthProvider";
 import { ResourceCollectionCard } from "../../design-system/patterns/resources/ResourceCollectionCard";
 import { ResourcePageHeader } from "../../design-system/patterns/resources/ResourcePageHeader";
-
-const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:4000";
+import { apiBaseUrl } from "../../lib/api-base-url";
 
 export const DiagnosticsPage = () => {
   const { session } = useAuth();
   const accessToken = session?.access_token ?? null;
   const client = useMemo(
-    () => createDiagnosticsClient(apiUrl, { getAccessToken: () => accessToken }),
+    () => createDiagnosticsClient(apiBaseUrl, { getAccessToken: () => accessToken }),
     [accessToken]
   );
 

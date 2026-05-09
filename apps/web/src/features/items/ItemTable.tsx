@@ -4,11 +4,10 @@ import { createItemsClient } from "@imsys/api-client";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../../components/ui/card";
+import { apiBaseUrl } from "../../lib/api-base-url";
 import { CreateItemForm } from "./CreateItemForm";
 import { DeleteItemButton } from "./DeleteItemButton";
 import { EditItemModal } from "./EditItemModal";
-
-const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:4000";
 
 type ItemTableProps = {
   accessToken: string;
@@ -18,7 +17,7 @@ type ItemTableProps = {
 
 export const ItemTable = ({ accessToken, viewerEmail, onSignOut }: ItemTableProps) => {
   const client = useMemo(
-    () => createItemsClient(apiUrl, { getAccessToken: () => accessToken }),
+    () => createItemsClient(apiBaseUrl, { getAccessToken: () => accessToken }),
     [accessToken]
   );
   const [items, setItems] = useState<Item[]>([]);

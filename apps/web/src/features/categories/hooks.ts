@@ -2,13 +2,12 @@ import { useMemo } from "react";
 import { createCategoriesClient } from "@imsys/api-client";
 import { useResourceCollection } from "@imsys/client";
 import { useTranslation } from "react-i18next";
-
-const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:4000";
+import { apiBaseUrl } from "../../lib/api-base-url";
 
 export const useCategoriesResource = (accessToken: string | null) => {
   const { t } = useTranslation("errors");
   const client = useMemo(
-    () => createCategoriesClient(apiUrl, { getAccessToken: () => accessToken }),
+    () => createCategoriesClient(apiBaseUrl, { getAccessToken: () => accessToken }),
     [accessToken]
   );
 
