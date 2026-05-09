@@ -19,13 +19,13 @@ What already exists in the repo:
 - an optional Worker scaffold exists in [`apps/cloudflare`](../apps/cloudflare)
 - root scripts exist for `pnpm cf:dev`, `pnpm cf:deploy:staging`, `pnpm cf:deploy`, and `pnpm cf:typegen`
 - the web app is a Vite SPA in [`apps/web`](../apps/web)
-- a Pages-compatible SPA fallback file exists at [`apps/web/public/_redirects`](../apps/web/public/_redirects)
+- the current Worker-assets deployment path uses SPA fallback from [`apps/web/wrangler.jsonc`](../apps/web/wrangler.jsonc)
 - a root Pages build command exists: `pnpm cf:pages:build`
 - the current backend remains a separate Node API in [`apps/api`](../apps/api)
 
 What does not exist yet:
 
-- no committed Pages-specific config or deploy script
+- no committed Pages project resource yet
 - no branch-to-environment deployment convention recorded in `docs/`
 
 ## Goals
@@ -90,9 +90,9 @@ Goal: make the current web router behave correctly on Pages.
 
 Implementation:
 
-- Add a Pages-compatible SPA fallback file:
-  - `apps/web/public/_redirects`
-  - rule: `/* /index.html 200`
+- Keep SPA fallback aligned with the active hosting path:
+  - for the current Worker-assets path, use `apps/web/wrangler.jsonc`
+  - if a Pages project is introduced later, add `_redirects` for that target
 - Use the root Pages build command for this workspace:
   - `pnpm cf:pages:build`
 - Record the expected Pages project settings:
@@ -180,7 +180,7 @@ Exit criteria:
 ## Recommended Delivery Order
 
 1. Keep MCP docs and repo MCP config in place.
-2. Add the Pages SPA fallback file.
+2. Keep SPA fallback aligned with the active hosting target.
 3. Document exact Pages build settings.
 4. Stand up a staging Pages project.
 5. Verify staging through MCP.
@@ -203,7 +203,7 @@ Done already:
 - optional Worker scaffold exists
 - root Cloudflare scripts exist
 - root Pages build script exists
-- Pages SPA fallback file exists
+- SPA fallback exists for the current Worker-assets deployment path
 - root and README-level Cloudflare setup notes exist
 
 Next implementation steps:

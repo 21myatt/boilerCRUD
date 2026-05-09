@@ -52,7 +52,9 @@ Use this flow for the frontend only.
    - `VITE_API_URL`
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON_KEY`
-5. Add SPA fallback support through `_redirects`.
+5. Ensure SPA fallback is configured for the chosen host:
+   - for the current Worker-assets path, keep `assets.not_found_handling = "single-page-application"` in `apps/web/wrangler.jsonc`
+   - if you later deploy `apps/web` to Cloudflare Pages instead, add `_redirects` at that time
 6. Deploy a preview or staging build first.
 7. Verify the deployed routes and auth behavior.
 
@@ -155,7 +157,7 @@ Do not treat a successful static deploy as “done” until these runtime paths 
 
 - Preview domain is not added to API CORS.
 - Pages env values are changed without a rebuild/redeploy.
-- `_redirects` is missing, so deep links 404 on refresh.
+- SPA fallback is not configured for the active hosting path, so deep links 404 on refresh.
 - Supabase redirect/origin settings still point at old domains.
 - Worker project names or domains still contain the previous client/project naming.
 

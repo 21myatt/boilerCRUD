@@ -37,8 +37,8 @@ Status legend:
 
 ## Phase 4: SPA Routing and Build
 
-- [x] Add `apps/web/public/_redirects`.
-- [x] Add the SPA fallback rule `/* /index.html 200`.
+- [x] Add SPA fallback handling for the active Cloudflare hosting path.
+- [x] Keep the Worker-assets fallback in `apps/web/wrangler.jsonc` via `assets.not_found_handling = "single-page-application"`.
 - [x] Confirm the Pages build command used by this monorepo: `pnpm cf:pages:build`.
 - [x] Confirm the Pages output directory is `apps/web/dist`.
 - [ ] Verify refresh/deep-link behavior for `/items`, `/categories`, `/assets`, `/users`, `/diagnostics`, and `/audit-logs`.

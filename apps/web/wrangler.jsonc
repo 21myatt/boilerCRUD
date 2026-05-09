@@ -1,7 +1,9 @@
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
-  "name": "imsys-web",
+  "name": "boilercrud-imsys",
   "compatibility_date": "2026-05-09",
+  "workers_dev": true,
+  "preview_urls": true,
   "assets": {
     "directory": "./dist",
     "not_found_handling": "single-page-application"

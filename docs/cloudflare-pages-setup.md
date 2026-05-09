@@ -25,7 +25,7 @@ Cloudflare-side setup may be partly automatable through MCP, but you should not 
 These pieces are already in place:
 
 - [`.mcp.json`](../.mcp.json) includes `cloudflare-api`, `cloudflare-builds`, `cloudflare-observability`, and `cloudflare-docs`
-- [`apps/web/public/_redirects`](../apps/web/public/_redirects) provides SPA fallback for Pages
+- [`apps/web/wrangler.jsonc`](../apps/web/wrangler.jsonc) currently provides SPA fallback for the connected Worker-assets deployment path
 - root script `pnpm cf:pages:build` builds the web app
 - [`docs/cloudflare-mcp-pages-plan.md`](./cloudflare-mcp-pages-plan.md) defines the rollout plan
 - [`docs/cloudflare-mcp-runbook.md`](./cloudflare-mcp-runbook.md) defines the operational flow
@@ -127,7 +127,7 @@ Use these values unless the project architecture changes:
 - app: `apps/web`
 - build command: `pnpm cf:pages:build`
 - output directory: `apps/web/dist`
-- framework behavior: Vite SPA with `_redirects`
+- framework behavior: Vite SPA with explicit fallback handling per host
 
 ## Manual Vs MCP Split
 
