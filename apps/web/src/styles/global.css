@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-app-bg: var(--bg);
+  --color-app-panel: var(--panel);
+  --color-app-panel-strong: var(--panel-strong);
+  --color-app-border: var(--border);
+  --color-app-text: var(--text);
+  --color-app-muted: var(--muted);
+  --color-app-accent: var(--accent);
+  --color-app-accent-soft: var(--accent-soft);
+  --color-app-destructive: var(--destructive);
+  --shadow-app: var(--shadow);
+}
+
+:root {
+  color-scheme: light;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --bg: #f4efe7;
+  --panel: rgba(255, 252, 247, 0.86);
+  --panel-strong: #fffdf9;
+  --border: rgba(42, 29, 20, 0.1);
+  --text: #171412;
+  --muted: #6f6458;
+  --accent: #1c1714;
+  --accent-soft: #e8ddd0;
+  --destructive: #a63a2a;
+  --shadow: 0 12px 36px rgba(30, 18, 10, 0.08);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--text);
+  background:
+    radial-gradient(circle at top left, rgba(184, 140, 97, 0.25), transparent 28%),
+    radial-gradient(circle at right 20%, rgba(30, 41, 59, 0.08), transparent 22%),
+    linear-gradient(180deg, #f7f2ea 0%, #f2ece4 100%);
+}
+
+body,
+button,
+input {
+  font: inherit;
+}
+
+button,
+input {
+  border: 0;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+a {
+  color: inherit;
+}
+
+#root {
+  isolation: isolate;
+}

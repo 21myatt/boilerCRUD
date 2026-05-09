@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APPS_DIR="$ROOT_DIR/apps"
+
+if ! command -v pnpm >/dev/null 2>&1; then
+  echo "pnpm is required but was not found in PATH." >&2
+  exit 1
+fi
+
+if [ ! -d "$APPS_DIR" ]; then
+  echo "No apps directory found at $APPS_DIR" >&2
+  exit 1
+fi
+
+discover_services() {
+  local app_dir package_json
+
+  for app_dir in "$APPS_DIR"/*; do
+    [ -d "$app_dir" ] || continue
+    package_json="$app_dir/package.json"
+    [ -f "$package_json" ] || continue
+
+    if grep -q '"dev"' "$package_json"; then
+      basename "$app_dir"
+    fi
+  done
+}
+
+print_usage() {
+  cat <<'EOF'
+Usage:
+  ./run                    Open one Terminal window per app in a 2x2 grid
+  ./run list               Show detected apps
+  ./run api web            Open Terminal windows only for selected apps
+
+Examples:
+  ./run
+  ./run api worker
+  ./run mobile
+EOF
+}
+
+map_alias() {
+  case "$1" in
+    app)
+      echo "mobile"
+      ;;
+    *)
+      echo "$1"
+      ;;
+  esac
+}
+
+get_screen_bounds() {
+  osascript -e 'tell application "Finder" to get bounds of window of desktop'
+}
+
+SERVICES=()
+while IFS= read -r service; do
+  [ -n "$service" ] && SERVICES+=("$service")
+done < <(discover_services)
+
+if [ "${#SERVICES[@]}" -eq 0 ]; then
+  echo "No runnable apps found under apps/." >&2
+  exit 1
+fi
+
+if [ "${1:-}" = "help" ] || [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+  print_usage
+  exit 0
+fi
+
+if [ "${1:-}" = "list" ]; then
+  printf '%s\n' "${SERVICES[@]}"
+  exit 0
+fi
+
+TARGETS=()
+if [ "$#" -eq 0 ]; then
+  TARGETS=("${SERVICES[@]}")
+else
+  for raw_target in "$@"; do
+    target="$(map_alias "$raw_target")"
+
+    if [[ " ${SERVICES[*]} " != *" $target "* ]]; then
+      echo "Unknown app: $raw_target" >&2
+      echo "Available apps: ${SERVICES[*]}" >&2
+      exit 1
+    fi
+
+    TARGETS+=("$target")
+  done
+fi
+
+if [ "${#TARGETS[@]}" -gt 4 ]; then
+  echo "2x2 grid supports up to 4 apps at once." >&2
+  exit 1
+fi
+
+SCREEN_BOUNDS="$(get_screen_bounds)"
+IFS=', ' read -r SCREEN_LEFT SCREEN_TOP SCREEN_RIGHT SCREEN_BOTTOM <<< "$SCREEN_BOUNDS"
+
+SCREEN_WIDTH=$((SCREEN_RIGHT - SCREEN_LEFT))
+SCREEN_HEIGHT=$((SCREEN_BOTTOM - SCREEN_TOP))
+HALF_WIDTH=$((SCREEN_WIDTH / 2))
+HALF_HEIGHT=$((SCREEN_HEIGHT / 2))
+
+GRID_BOUNDS=(
+  "$SCREEN_LEFT $SCREEN_TOP $((SCREEN_LEFT + HALF_WIDTH)) $((SCREEN_TOP + HALF_HEIGHT))"
+  "$((SCREEN_LEFT + HALF_WIDTH)) $SCREEN_TOP $SCREEN_RIGHT $((SCREEN_TOP + HALF_HEIGHT))"
+  "$SCREEN_LEFT $((SCREEN_TOP + HALF_HEIGHT)) $((SCREEN_LEFT + HALF_WIDTH)) $SCREEN_BOTTOM"
+  "$((SCREEN_LEFT + HALF_WIDTH)) $((SCREEN_TOP + HALF_HEIGHT)) $SCREEN_RIGHT $SCREEN_BOTTOM"
+)
+
+for index in "${!TARGETS[@]}"; do
+  target="${TARGETS[$index]}"
+  read -r left top right bottom <<< "${GRID_BOUNDS[$index]}"
+
+  echo "Opening Terminal for $target..."
+  osascript \
+    -e 'tell application "Terminal" to activate' \
+    -e "tell application \"Terminal\" to do script \"cd \\\"$ROOT_DIR\\\" && printf '\\\\e]1;%s\\\\a' '$target' && pnpm --filter ./apps/$target dev\"" \
+    -e 'delay 0.2' \
+    -e "tell application \"Terminal\" to set bounds of front window to {$left, $top, $right, $bottom}"
+done

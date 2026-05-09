@@ -1,0 +1,2 @@
+export const emailJob = () => "email";
+

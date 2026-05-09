@@ -1,0 +1,29 @@
+{
+  "name": "@imsys/api",
+  "private": true,
+  "version": "0.0.0",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "tsx src/server.ts",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "test": "node --import tsx --test src/middleware/*.test.ts src/tests/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@imsys/auth": "workspace:*",
+    "@imsys/client": "workspace:*",
+    "@imsys/db": "workspace:*",
+    "@imsys/types": "workspace:*",
+    "@imsys/utils": "workspace:*",
+    "drizzle-orm": "^0.32.0",
+    "dotenv": "^16.4.7",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.4"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "@imsys/auth",
+  "private": true,
+  "version": "0.0.0",
+  "main": "index.ts",
+  "dependencies": {
+    "@imsys/types": "workspace:*",
+    "@supabase/supabase-js": "^2.49.8",
+    "@types/react": "^19.1.17",
+    "jose": "^5.9.6",
+    "react": "^19.1.0"
+  }
+}

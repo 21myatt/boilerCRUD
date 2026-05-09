@@ -1,0 +1,35 @@
+{
+  "name": "@imsys/mobile",
+  "private": true,
+  "version": "0.0.0",
+  "main": "index.js",
+  "scripts": {
+    "dev": "expo start",
+    "build": "expo export",
+    "start": "expo start",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@babel/runtime": "^7.28.4",
+    "@imsys/auth": "workspace:*",
+    "@imsys/client": "workspace:*",
+    "@imsys/types": "workspace:*",
+    "@react-native-async-storage/async-storage": "^2.2.0",
+    "@supabase/supabase-js": "^2.49.8",
+    "@tanstack/react-query": "^5.100.9",
+    "expo": "^54.0.0",
+    "expo-document-picker": "^55.0.13",
+    "i18next": "^26.0.8",
+    "react": "^19.1.0",
+    "react-i18next": "^17.0.6",
+    "react-native": "^0.81.5",
+    "react-native-url-polyfill": "^2.0.0",
+    "zustand": "^5.0.13"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.1.17",
+    "typescript": "^5.9.3"
+  }
+}

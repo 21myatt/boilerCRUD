@@ -1,0 +1,10 @@
+{
+  "name": "@imsys/client",
+  "private": true,
+  "version": "0.0.0",
+  "main": "index.ts",
+  "dependencies": {
+    "@tanstack/react-query": "^5.100.9",
+    "react": "^19.1.0"
+  }
+}

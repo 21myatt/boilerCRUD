@@ -1,0 +1,39 @@
+{
+  "name": "@imsys/web",
+  "private": true,
+  "version": "0.0.0",
+  "main": "src/main.tsx",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "start": "vite preview",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@imsys/api-client": "workspace:*",
+    "@imsys/auth": "workspace:^",
+    "@imsys/client": "workspace:*",
+    "@imsys/types": "workspace:*",
+    "@imsys/ui": "workspace:*",
+    "@tailwindcss/vite": "^4.1.13",
+    "@supabase/supabase-js": "^2.49.8",
+    "@tanstack/react-query": "^5.100.9",
+    "@tanstack/react-router": "^1.169.1",
+    "i18next": "^26.0.8",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-i18next": "^17.0.6",
+    "sonner": "^2.0.7",
+    "zustand": "^5.0.13"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.1.17",
+    "@types/react-dom": "^19.1.9",
+    "@vitejs/plugin-react": "^4.3.1",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.2",
+    "wrangler": "^4.18.0"
+  }
+}

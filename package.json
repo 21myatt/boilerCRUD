@@ -1,0 +1,28 @@
+{
+  "name": "imsys",
+  "private": true,
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "start": "turbo run start",
+    "lint": "turbo run lint",
+    "lint:schema": "node scripts/lint-schema-version.mjs",
+    "bootstrap:supabase": "node scripts/bootstrap-supabase.mjs",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "db:migrate": "turbo run db:migrate",
+    "db:seed": "turbo run db:seed",
+    "worker:start": "turbo run worker:start",
+    "cf:dev": "pnpm --filter @imsys/cloudflare dev",
+    "cf:deploy": "pnpm --filter @imsys/cloudflare deploy",
+    "cf:deploy:staging": "pnpm --filter @imsys/cloudflare deploy:staging",
+    "cf:typegen": "pnpm --filter @imsys/cloudflare typegen",
+    "cf:pages:build": "pnpm --filter @imsys/web build",
+    "cf:pages:deploy:worker": "pnpm --dir apps/web exec wrangler deploy --config wrangler.jsonc"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.8",
+    "typescript": "^5.5.4"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "@imsys/db",
+  "private": true,
+  "version": "0.0.0",
+  "main": "index.ts",
+  "dependencies": {
+    "drizzle-orm": "^0.32.0",
+    "pg": "^8.12.0",
+    "typescript": "^5.5.4"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.15.2"
+  }
+}
