@@ -299,11 +299,15 @@ Verified live:
 - `/api/users` returns `401 Missing bearer token` without auth, which confirms the live Worker route boundary is active
 - the old startup crash string `VITE_API_URL is required outside local development` is no longer present in the deployed bundle
 - the web app production API base now defaults to same-origin `/api`
+- authenticated live API verification passed using a temporary admin user
+- authenticated `/api/users`, `/api/admin/diagnostics`, and `/api/admin/audit-logs` all returned successful responses
+- authenticated category create, update, list, and delete passed on the live Worker
+- authenticated item create, update, list, and delete passed on the live Worker
 
 Important note:
 
 - the deployed bundle still contains `http://localhost` strings from third-party library internals, but not from the app's API base logic
-- authenticated smoke tests are still required before calling the rollout complete
+- browser-level authenticated smoke tests are still required before calling the rollout complete
 
 ## Current Safe Interpretation
 
@@ -312,11 +316,11 @@ Today this repo should be described as:
 - a Supabase-first monorepo with a Cloudflare-first web deployment path
 - a repo where the default public server boundary is `apps/web`
 - a repo where `apps/api` is local compatibility infrastructure, not the default production story
-- a boilerplate that still needs final authenticated deployed smoke-test verification before being called fully one-shot
+- a boilerplate that still needs final browser-level deployed smoke-test verification before being called fully one-shot
 
 ## Next Recommended Task
 
 Next concrete implementation task:
 
-- run the deployed Worker path against a real Cloudflare environment and complete the verification checklist
+- complete browser-level verification for deployed login and the production web screens
 That is now the remaining release gate.
