@@ -1,0 +1,5 @@
+APP_ENV=development
+APP_NAME=imsys-web
+SUPABASE_URL=https://[YOUR-PROJECT-REF].supabase.co
+SUPABASE_SERVICE_ROLE_KEY=[YOUR-SUPABASE-SERVICE-ROLE-KEY]
+CORS_ORIGINS=http://localhost:5173,http://localhost:8081,http://localhost:8787

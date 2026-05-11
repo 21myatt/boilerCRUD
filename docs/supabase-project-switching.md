@@ -28,14 +28,13 @@ That means:
 1. Point `.env` and `apps/mobile/.env` at the new Supabase project.
 2. Authenticate MCP against the Supabase account/project you want to inspect.
 3. Run `pnpm bootstrap:supabase` to validate env, auth/storage access, DB reachability, and schema version.
-4. If the project still needs bootstrap SQL, run `pnpm bootstrap:supabase -- --apply`.
-5. Run the checks in [profiles-verification.md](./profiles-verification.md).
-6. Re-test auth, CRUD, roles, and disabled-user behavior on that project.
+4. If the project still needs schema bootstrap, run `pnpm db:migrate` or `pnpm bootstrap:supabase -- --apply`.
+5. Re-test auth, CRUD, roles, and disabled-user behavior on that project.
 
 ## Important Note
 
 This boilerplate is multi-project ready, but each new Supabase project still needs:
 
-- schema bootstrap
+- tracked migration rollout
 - env configuration
 - verification after bootstrap

@@ -9,4 +9,7 @@ Repository automation helpers live here.
 
 - `bootstrap-supabase.mjs`
   Validates env files, checks Supabase auth/storage access, verifies database reachability, and confirms the live schema version.
-  Use `pnpm bootstrap:supabase -- --apply` to also apply `supabase/schema.sql`.
+  Use `pnpm bootstrap:supabase -- --apply` to also run tracked migrations through the Supabase CLI.
+
+- `supabase-db-push.mjs`
+  Runs `supabase db push --db-url ...` against the current `DATABASE_URL` after loading `.env`.

@@ -32,13 +32,13 @@ discover_services() {
 print_usage() {
   cat <<'EOF'
 Usage:
-  ./run                    Open one Terminal window per app in a 2x2 grid
+  ./run <app...>           Open up to 4 Terminal windows in a 2x2 grid
   ./run list               Show detected apps
   ./run api web            Open Terminal windows only for selected apps
 
 Examples:
-  ./run
   ./run api worker
+  ./run api web mobile worker
   ./run mobile
 EOF
 }
@@ -97,6 +97,8 @@ fi
 
 if [ "${#TARGETS[@]}" -gt 4 ]; then
   echo "2x2 grid supports up to 4 apps at once." >&2
+  echo "Requested: ${TARGETS[*]}" >&2
+  echo "Use './run list' to see available apps, then choose up to 4." >&2
   exit 1
 fi
 

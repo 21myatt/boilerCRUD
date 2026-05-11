@@ -1,46 +1,5 @@
 import type { Category, CategoryCreateInput, CategoryUpdateInput } from "@imsys/types";
-
-type ApiEnvelope<T> = {
-  data?: T;
-  error?: string;
-};
-
-type RequestOptions = {
-  getAccessToken?: () => Promise<string | null> | string | null;
-};
-
-const requestEnvelope = async <T>(
-  baseUrl: string,
-  path: string,
-  init?: RequestInit,
-  options?: RequestOptions
-): Promise<ApiEnvelope<T>> => {
-  const accessToken = await options?.getAccessToken?.();
-  const targetUrl = new URL(path, baseUrl);
-  let response: Response;
-
-  try {
-    response = await fetch(targetUrl, {
-      headers: {
-        "content-type": "application/json",
-        ...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}),
-        ...(init?.headers ?? {})
-      },
-      ...init
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Network request failed";
-    throw new Error(`${message} while calling ${targetUrl.toString()}`);
-  }
-
-  const body = (await response.json()) as ApiEnvelope<T>;
-
-  if (!response.ok) {
-    throw new Error(body.error ?? `Request failed with ${response.status}`);
-  }
-
-  return body;
-};
+import { requestEnvelope, type RequestOptions } from "./request";
 
 export const getCategories = async (baseUrl: string, options?: RequestOptions): Promise<Category[]> => {
   const body = await requestEnvelope<Category[]>(baseUrl, "/categories", undefined, options);

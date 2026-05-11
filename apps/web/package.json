@@ -6,6 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:watch": "vite build --watch",
+    "edge:dev": "wrangler dev --config wrangler.jsonc",
+    "edge:deploy": "wrangler deploy --config wrangler.jsonc --env production",
+    "edge:deploy:staging": "wrangler deploy --config wrangler.jsonc --env staging",
+    "edge:deploy:production": "wrangler deploy --config wrangler.jsonc --env production",
     "start": "vite preview",
     "lint": "tsc -p tsconfig.json --noEmit",
     "typecheck": "tsc -p tsconfig.json --noEmit"
@@ -21,6 +26,7 @@
     "@tanstack/react-query": "^5.100.9",
     "@tanstack/react-router": "^1.169.1",
     "i18next": "^26.0.8",
+    "jose": "^5.9.6",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-i18next": "^17.0.6",

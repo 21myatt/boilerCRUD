@@ -5,9 +5,9 @@ import { execFileSync } from "node:child_process";
 const rootDir = path.resolve(import.meta.dirname, "..");
 const envPath = path.join(rootDir, ".env");
 const mobileEnvPath = path.join(rootDir, "apps/mobile/.env");
-const schemaPath = path.join(rootDir, "supabase/schema.sql");
 const constantsPath = path.join(rootDir, "packages/utils/constants.ts");
 const packagesDbDir = path.join(rootDir, "packages/db");
+const migrateScriptPath = path.join(rootDir, "scripts/supabase-db-push.mjs");
 
 const args = new Set(process.argv.slice(2));
 const shouldApply = args.has("--apply");
@@ -43,11 +43,11 @@ const rootEnv = {
 };
 
 const mobileEnv = readEnvFile(mobileEnvPath);
+const supabaseAdminKey = rootEnv.SUPABASE_SECRET_KEY ?? rootEnv.SUPABASE_SERVICE_ROLE_KEY;
 
 const requiredRootEnv = [
   "DATABASE_URL",
   "SUPABASE_URL",
-  "SUPABASE_SECRET_KEY",
   "VITE_SUPABASE_URL",
   "VITE_SUPABASE_ANON_KEY"
 ];
@@ -125,20 +125,17 @@ const tryDbScript = (script) => {
   }
 };
 
-const getDbConnectionScript = ({ apply = false } = {}) => {
-  const schemaLiteral = JSON.stringify(fs.readFileSync(schemaPath, "utf8"));
+const getDbConnectionScript = () => {
   return `
     const { Pool } = require('pg');
     const url = new URL(process.env.DATABASE_URL);
     const candidates = [url.toString(), (() => { const copy = new URL(url.toString()); copy.port = '6543'; return copy.toString(); })()];
-    const sql = ${schemaLiteral};
     (async () => {
       let lastError = null;
       for (const candidate of candidates) {
         const pool = new Pool({ connectionString: candidate, ssl: { rejectUnauthorized: false } });
         try {
           await pool.query('select 1');
-          ${apply ? "await pool.query(sql);" : ""}
           const state = await pool.query(\"select schema_version from public.app_schema_state where singleton_key = 'current'\");
           await pool.end();
           console.log(JSON.stringify({ ok: true, candidate, schemaVersion: state.rows[0]?.schema_version ?? null }));
@@ -154,12 +151,26 @@ const getDbConnectionScript = ({ apply = false } = {}) => {
   `;
 };
 
+const runTrackedMigrations = () => {
+  execFileSync("node", [migrateScriptPath], {
+    cwd: rootDir,
+    stdio: "inherit",
+    env: {
+      ...process.env,
+      ...rootEnv,
+    },
+  });
+};
+
 const main = async () => {
   info("Validating root environment");
   for (const key of requiredRootEnv) {
     if (!rootEnv[key]) {
       fail(`missing ${key} in .env or process env`);
     }
+  }
+  if (!supabaseAdminKey) {
+    fail("missing SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY in .env or process env");
   }
 
   info("Validating mobile environment");
@@ -175,8 +186,8 @@ const main = async () => {
   info("Checking Supabase auth admin access");
   const authResponse = await fetch(`${rootEnv.SUPABASE_URL.replace(/\/$/, "")}/auth/v1/admin/users?page=1&per_page=1`, {
     headers: {
-      apikey: rootEnv.SUPABASE_SECRET_KEY,
-      authorization: `Bearer ${rootEnv.SUPABASE_SECRET_KEY}`
+      apikey: supabaseAdminKey,
+      authorization: `Bearer ${supabaseAdminKey}`
     }
   });
   await parseJsonResponse(authResponse);
@@ -184,8 +195,8 @@ const main = async () => {
   info("Checking storage bucket access");
   const storageResponse = await fetch(`${rootEnv.SUPABASE_URL.replace(/\/$/, "")}/storage/v1/bucket`, {
     headers: {
-      apikey: rootEnv.SUPABASE_SECRET_KEY,
-      authorization: `Bearer ${rootEnv.SUPABASE_SECRET_KEY}`
+      apikey: supabaseAdminKey,
+      authorization: `Bearer ${supabaseAdminKey}`
     }
   });
   const buckets = await parseJsonResponse(storageResponse);
@@ -193,8 +204,13 @@ const main = async () => {
     fail("cms-assets bucket not found");
   }
 
-  info(shouldApply ? "Applying supabase/schema.sql via direct Postgres" : "Checking direct Postgres reachability");
-  const dbResultRaw = tryDbScript(getDbConnectionScript({ apply: shouldApply }));
+  if (shouldApply) {
+    info("Applying tracked Supabase migrations");
+    runTrackedMigrations();
+  }
+
+  info("Checking direct Postgres reachability");
+  const dbResultRaw = tryDbScript(getDbConnectionScript());
   if (typeof dbResultRaw !== "string") {
     fail(dbResultRaw.stderr);
   }

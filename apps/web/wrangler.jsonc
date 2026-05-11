@@ -1,11 +1,49 @@
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
-  "name": "boilercrud-imsys",
+  "name": "boilercrud-imsys-dev",
   "compatibility_date": "2026-05-09",
   "workers_dev": true,
   "preview_urls": true,
+  "main": "./src/worker.ts",
+  "secrets": {
+    "required": ["SUPABASE_SERVICE_ROLE_KEY"]
+  },
+  "vars": {
+    "APP_NAME": "imsys-web",
+    "APP_ENV": "development",
+    "CORS_ORIGINS": "http://localhost:5173,http://localhost:8081",
+    "SUPABASE_URL": "https://your-project-ref.supabase.co"
+  },
+  "env": {
+    "staging": {
+      "name": "boilercrud-imsys-staging",
+      "secrets": {
+        "required": ["SUPABASE_SERVICE_ROLE_KEY"]
+      },
+      "vars": {
+        "APP_NAME": "imsys-web",
+        "APP_ENV": "staging",
+        "CORS_ORIGINS": "https://staging.example.com",
+        "SUPABASE_URL": "https://your-project-ref.supabase.co"
+      }
+    },
+    "production": {
+      "name": "boilercrud-imsys-production",
+      "secrets": {
+        "required": ["SUPABASE_SERVICE_ROLE_KEY"]
+      },
+      "vars": {
+        "APP_NAME": "imsys-web",
+        "APP_ENV": "production",
+        "CORS_ORIGINS": "https://app.example.com",
+        "SUPABASE_URL": "https://your-project-ref.supabase.co"
+      }
+    }
+  },
   "assets": {
     "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": true,
     "not_found_handling": "single-page-application"
   }
 }

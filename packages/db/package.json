@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.0.0",
   "main": "index.ts",
+  "scripts": {
+    "db:migrate": "node ../../scripts/supabase-db-push.mjs"
+  },
   "dependencies": {
     "drizzle-orm": "^0.32.0",
     "pg": "^8.12.0",
