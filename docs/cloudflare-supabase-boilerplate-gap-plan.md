@@ -273,7 +273,7 @@ CORS note:
 ## Verification Checklist
 
 - [ ] Web login works on deployed Cloudflare URL
-- [ ] Items list works on deployed Cloudflare URL
+- [x] Items list works on deployed Cloudflare URL
 - [ ] Categories CRUD works on deployed Cloudflare URL
 - [ ] Users admin screen works on deployed Cloudflare URL
 - [ ] Diagnostics screen works on deployed Cloudflare URL
@@ -303,11 +303,14 @@ Verified live:
 - authenticated `/api/users`, `/api/admin/diagnostics`, and `/api/admin/audit-logs` all returned successful responses
 - authenticated category create, update, list, and delete passed on the live Worker
 - authenticated item create, update, list, and delete passed on the live Worker
+- browser verification on `/items` showed same-origin requests to `https://boilercrud-imsys.amh-myat.workers.dev/api/items`
+- browser verification on `/items` showed authenticated `GET /api/items` = `200` and authenticated `POST /api/items` = `201`
 
 Important note:
 
 - the deployed bundle still contains `http://localhost` strings from third-party library internals, but not from the app's API base logic
 - browser-level authenticated smoke tests are still required before calling the rollout complete
+- the remaining open items require a real browser session and are not fully automatable from the current terminal-only workspace
 
 ## Current Safe Interpretation
 
