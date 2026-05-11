@@ -284,6 +284,27 @@ CORS note:
 - [x] Another developer can use MCP to inspect and validate the setup state
 - [x] Verification can be used both as an onboarding smoke test and as a contributor release checklist
 
+## Live Verification Progress
+
+Verified on 2026-05-11 against:
+
+- `https://boilercrud-imsys.amh-myat.workers.dev`
+- Worker version `a80f811b-9d90-4514-b25a-2eea38459d64`
+
+Verified live:
+
+- root HTML returns `200`
+- deployed HTML references `index-lI9BI_KA.js`, which is the fixed bundle
+- `/health` returns `ok: true`
+- `/api/users` returns `401 Missing bearer token` without auth, which confirms the live Worker route boundary is active
+- the old startup crash string `VITE_API_URL is required outside local development` is no longer present in the deployed bundle
+- the web app production API base now defaults to same-origin `/api`
+
+Important note:
+
+- the deployed bundle still contains `http://localhost` strings from third-party library internals, but not from the app's API base logic
+- authenticated smoke tests are still required before calling the rollout complete
+
 ## Current Safe Interpretation
 
 Today this repo should be described as:
@@ -291,7 +312,7 @@ Today this repo should be described as:
 - a Supabase-first monorepo with a Cloudflare-first web deployment path
 - a repo where the default public server boundary is `apps/web`
 - a repo where `apps/api` is local compatibility infrastructure, not the default production story
-- a boilerplate that still needs final deployed smoke-test verification before being called fully one-shot
+- a boilerplate that still needs final authenticated deployed smoke-test verification before being called fully one-shot
 
 ## Next Recommended Task
 
