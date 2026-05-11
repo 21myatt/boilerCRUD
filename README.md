@@ -126,7 +126,7 @@ For the default deployment path:
 3. Run `pnpm web:edge:release:check`.
 4. Build `apps/web`.
 5. Set Worker runtime vars for `SUPABASE_URL`, `CORS_ORIGINS`, `APP_NAME`, and `APP_ENV`.
-6. Set the Worker secret `SUPABASE_SERVICE_ROLE_KEY`.
+6. Set the Worker secret `SUPABASE_SERVICE_ROLE_KEY` or `SUPABASE_SECRET_KEY`.
 7. Deploy with `pnpm web:edge:deploy:staging` or `pnpm web:edge:deploy:production`.
 
 `apps/cloudflare` still exists as a separate generic proxy scaffold, but it is no longer the main boilerplate story.

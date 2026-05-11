@@ -20,7 +20,7 @@ If `VITE_API_URL` is omitted in the Cloudflare-first production path, the web ap
 Worker runtime vars and secrets for `apps/web`:
 
 - `SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY` or `SUPABASE_SECRET_KEY`
 - `CORS_ORIGINS`
 - `APP_NAME`
 - `APP_ENV`
@@ -112,4 +112,4 @@ pnpm --dir apps/web exec wrangler secret put SUPABASE_SERVICE_ROLE_KEY --config 
 pnpm --dir apps/web exec wrangler secret put SUPABASE_SERVICE_ROLE_KEY --config wrangler.jsonc --env production
 ```
 
-The `apps/web/wrangler.jsonc` file now declares `secrets.required`, so deploy will fail if the production Worker is missing that secret.
+If an existing Worker already uses `SUPABASE_SECRET_KEY`, you can keep that name. The Worker code accepts either secret binding.

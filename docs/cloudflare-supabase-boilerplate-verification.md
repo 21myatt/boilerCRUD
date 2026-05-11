@@ -49,7 +49,7 @@ Before calling the boilerplate one-shot, complete this against the real Cloudfla
    - `APP_NAME`
    - `APP_ENV`
 3. Confirm Worker secret:
-   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY` or `SUPABASE_SECRET_KEY`
 4. Confirm `/health` returns `ok: true`.
 5. Log in on the deployed Cloudflare URL.
 6. Confirm `items`, `categories`, `users`, `diagnostics`, and `audit logs` all work.

@@ -72,9 +72,9 @@ requireText(
 );
 
 requireText(
-  "Wrangler config declares required secret and named deploy environments",
+  "Wrangler config declares named deploy environments",
   "apps/web/wrangler.jsonc",
-  ['"secrets"', '"required": ["SUPABASE_SERVICE_ROLE_KEY"]', '"staging"', '"production"']
+  ['"staging"', '"production"']
 );
 
 const apiBaseUrlSource = read("apps/web/src/lib/api-base-url.ts");
