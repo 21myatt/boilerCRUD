@@ -272,13 +272,13 @@ CORS note:
 
 ## Verification Checklist
 
-- [ ] Web login works on deployed Cloudflare URL
+- [x] Web login works on deployed Cloudflare URL
 - [x] Items list works on deployed Cloudflare URL
-- [ ] Categories CRUD works on deployed Cloudflare URL
+- [x] Categories CRUD works on deployed Cloudflare URL
 - [ ] Users admin screen works on deployed Cloudflare URL
 - [ ] Diagnostics screen works on deployed Cloudflare URL
 - [ ] Audit log screen works on deployed Cloudflare URL
-- [ ] No frontend network request points to `localhost`
+- [x] No frontend network request points to `localhost`
 - [x] No required production env var is undocumented
 - [x] Another developer can clone the repo and follow one documented setup path
 - [x] Another developer can use MCP to inspect and validate the setup state
@@ -305,11 +305,14 @@ Verified live:
 - authenticated item create, update, list, and delete passed on the live Worker
 - browser verification on `/items` showed same-origin requests to `https://boilercrud-imsys.amh-myat.workers.dev/api/items`
 - browser verification on `/items` showed authenticated `GET /api/items` = `200` and authenticated `POST /api/items` = `201`
+- browser verification confirmed login success on local web and production web for all tested users
+- browser verification confirmed CRUD success on local web and production web for `assets`, `categories`, and `items`
+- browser verification confirmed frontend network traffic targets Supabase URLs and the Cloudflare Worker URL rather than `localhost`
 
 Important note:
 
 - the deployed bundle still contains `http://localhost` strings from third-party library internals, but not from the app's API base logic
-- browser-level authenticated smoke tests are still required before calling the rollout complete
+- explicit browser-level verification for `users`, `diagnostics`, and `audit logs` is still required before calling the rollout complete
 - the remaining open items require a real browser session and are not fully automatable from the current terminal-only workspace
 
 ## Current Safe Interpretation
@@ -319,11 +322,11 @@ Today this repo should be described as:
 - a Supabase-first monorepo with a Cloudflare-first web deployment path
 - a repo where the default public server boundary is `apps/web`
 - a repo where `apps/api` is local compatibility infrastructure, not the default production story
-- a boilerplate that still needs final browser-level deployed smoke-test verification before being called fully one-shot
+- a boilerplate that still needs final browser-level admin-screen verification before being called fully one-shot
 
 ## Next Recommended Task
 
 Next concrete implementation task:
 
-- complete browser-level verification for deployed login and the production web screens
+- complete browser-level verification for deployed `users`, `diagnostics`, and `audit log` screens
 That is now the remaining release gate.
