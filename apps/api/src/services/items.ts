@@ -2,6 +2,8 @@ import { and, desc, eq } from "drizzle-orm";
 import type { Item, ItemCreateInput, ItemUpdateInput } from "@imsys/types";
 import { getDb } from "@imsys/db";
 import { categories, items } from "@imsys/db/schema";
+import { AppError } from "@imsys/utils";
+import { getAppEnv } from "../lib/app-env";
 
 const mapRow = (row: typeof items.$inferSelect): Item => ({
   id: row.id,
@@ -10,6 +12,8 @@ const mapRow = (row: typeof items.$inferSelect): Item => ({
   createdAt: new Date(row.createdAt).toISOString(),
   updatedAt: new Date(row.updatedAt).toISOString()
 });
+
+const appEnv = () => getAppEnv();
 
 const assertCategoryOwnership = async (userId: string, categoryId: string | null | undefined) => {
   if (!categoryId) {
@@ -20,11 +24,11 @@ const assertCategoryOwnership = async (userId: string, categoryId: string | null
   const rows = await db
     .select({ id: categories.id })
     .from(categories)
-    .where(and(eq(categories.id, categoryId), eq(categories.userId, userId)))
+    .where(and(eq(categories.id, categoryId), eq(categories.userId, userId), eq(categories.appEnv, appEnv())))
     .limit(1);
 
   if (!rows[0]) {
-    throw new Error("Category not found");
+    throw new AppError("Category not found", 404);
   }
 };
 
@@ -33,7 +37,7 @@ export const listItems = async (userId: string): Promise<Item[]> => {
   const rows = await db
     .select()
     .from(items)
-    .where(eq(items.userId, userId))
+    .where(and(eq(items.userId, userId), eq(items.appEnv, appEnv())))
     .orderBy(desc(items.createdAt));
 
   return rows.map(mapRow);
@@ -44,7 +48,7 @@ export const getItem = async (userId: string, id: string): Promise<Item | null> 
   const rows = await db
     .select()
     .from(items)
-    .where(and(eq(items.id, id), eq(items.userId, userId)))
+    .where(and(eq(items.id, id), eq(items.userId, userId), eq(items.appEnv, appEnv())))
     .limit(1);
 
   return rows[0] ? mapRow(rows[0]) : null;
@@ -55,6 +59,7 @@ export const createItem = async (userId: string, input: ItemCreateInput): Promis
   await assertCategoryOwnership(userId, input.categoryId);
   const row = {
     id: crypto.randomUUID(),
+    appEnv: appEnv(),
     userId,
     categoryId: input.categoryId ?? null,
     name: input.name,
@@ -91,7 +96,7 @@ export const updateItem = async (
       categoryId: nextCategoryId,
       updatedAt
     })
-    .where(and(eq(items.id, id), eq(items.userId, userId)));
+    .where(and(eq(items.id, id), eq(items.userId, userId), eq(items.appEnv, appEnv())));
 
   return {
     ...existing,
@@ -109,6 +114,6 @@ export const deleteItem = async (userId: string, id: string): Promise<boolean> =
     return false;
   }
 
-  await db.delete(items).where(and(eq(items.id, id), eq(items.userId, userId)));
+  await db.delete(items).where(and(eq(items.id, id), eq(items.userId, userId), eq(items.appEnv, appEnv())));
   return true;
 };

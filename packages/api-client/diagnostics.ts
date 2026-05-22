@@ -1,11 +1,4 @@
-type DiagnosticsResponse = {
-  checkedAt: string;
-  checks: Record<string, {
-    ok: boolean;
-    expected?: string | null;
-    actual?: string | null;
-  }>;
-};
+import { apiEnvelopeSchema, diagnosticsResponseSchema, type DiagnosticsResponse } from "@imsys/types";
 import { requestEnvelope, type RequestOptions } from "./request";
 
 const getDiagnostics = async (
@@ -16,7 +9,8 @@ const getDiagnostics = async (
     baseUrl,
     "/admin/diagnostics",
     undefined,
-    options
+    options,
+    apiEnvelopeSchema(diagnosticsResponseSchema)
   );
   return body.data as DiagnosticsResponse;
 };
@@ -24,5 +18,3 @@ const getDiagnostics = async (
 export const createDiagnosticsClient = (baseUrl: string, options?: RequestOptions) => ({
   getDiagnostics: () => getDiagnostics(baseUrl, options)
 });
-
-export type { DiagnosticsResponse };

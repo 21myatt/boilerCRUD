@@ -1,33 +1,36 @@
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
-  "name": "boilercrud-imsys-dev",
+  "name": "your-app-web-dev",
   "compatibility_date": "2026-05-09",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   "workers_dev": true,
   "preview_urls": true,
   "main": "./src/worker.ts",
   "vars": {
-    "APP_NAME": "imsys-web",
+    "APP_NAME": "your-app-web",
     "APP_ENV": "development",
     "CORS_ORIGINS": "http://localhost:5173,http://localhost:8081",
     "SUPABASE_URL": "https://your-project-ref.supabase.co"
   },
   "env": {
     "staging": {
-      "name": "boilercrud-imsys-staging",
+      "name": "your-app-web-staging",
       "vars": {
-        "APP_NAME": "imsys-web",
+        "APP_NAME": "your-app-web",
         "APP_ENV": "staging",
-        "CORS_ORIGINS": "https://staging.example.com",
+        "CORS_ORIGINS": "https://your-staging.example.com",
         "SUPABASE_URL": "https://your-project-ref.supabase.co"
       }
     },
     "production": {
-      "name": "boilercrud-imsys",
+      "name": "your-app-web",
       "vars": {
-        "APP_NAME": "imsys-web",
+        "APP_NAME": "your-app-web",
         "APP_ENV": "production",
-        "CORS_ORIGINS": "https://boilercrud-imsys.amh-myat.workers.dev",
-        "SUPABASE_URL": "https://cldsfwwrawmqocptywre.supabase.co"
+        "CORS_ORIGINS": "https://your-app.example.com",
+        "SUPABASE_URL": "https://your-project-ref.supabase.co"
       }
     }
   },

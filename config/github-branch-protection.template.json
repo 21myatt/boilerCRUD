@@ -1,0 +1,17 @@
+{
+  "develop": {
+    "required_status_checks": ["CI / verify"],
+    "require_pull_request": true,
+    "require_approvals": false,
+    "block_force_pushes": true,
+    "block_deletions": true
+  },
+  "main": {
+    "required_status_checks": ["CI / verify"],
+    "require_pull_request": true,
+    "require_approvals": true,
+    "required_approving_review_count": 1,
+    "block_force_pushes": true,
+    "block_deletions": true
+  }
+}

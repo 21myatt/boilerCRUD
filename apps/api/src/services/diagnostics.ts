@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { getDb } from "@imsys/db";
 import { appSchemaState, profiles } from "@imsys/db/schema";
 import { APP_SCHEMA_VERSION } from "@imsys/utils";
+import { getAppEnv } from "../lib/app-env";
 import { getSupabaseAdminHeaders, getSupabaseAdminUrl } from "../lib/supabase-admin";
 
 const parseJson = async <T>(response: Response): Promise<T> => {
@@ -80,7 +81,7 @@ export const getDiagnostics = async () => {
   });
   const storageBuckets = await parseJson<Array<{ id: string; name: string }>>(storageResponse);
 
-  const profileCheck = await db.select({ count: sql<number>`count(*)` }).from(profiles);
+  const profileCheck = await db.select({ count: sql<number>`count(*)` }).from(profiles).where(sql`${profiles.appEnv} = ${getAppEnv()}`);
   const currentVersion = schemaRows[0]?.schemaVersion ?? null;
   const profileCount = profileCheck[0]?.count;
 

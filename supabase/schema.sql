@@ -12,8 +12,10 @@ create table if not exists public.app_schema_state (
   updated_at timestamptz not null default timezone('utc', now())
 );
 
+alter table public.app_schema_state enable row level security;
+
 insert into public.app_schema_state (singleton_key, schema_version, updated_at)
-values ('current', '2026-05-08-next-backend-v1', timezone('utc', now()))
+values ('current', '2026-05-22-env-scoped-data-v1', timezone('utc', now()))
 on conflict (singleton_key) do update
 set schema_version = excluded.schema_version,
     updated_at = excluded.updated_at;
@@ -201,6 +203,8 @@ create table if not exists public.audit_logs (
   payload_summary jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default timezone('utc', now())
 );
+
+alter table public.audit_logs enable row level security;
 
 create index if not exists audit_logs_actor_user_id_idx
   on public.audit_logs (actor_user_id);

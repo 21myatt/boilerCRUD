@@ -5,4 +5,5 @@ export * from "./category";
 export * from "./common";
 export * from "./item";
 export * from "./resource";
+export * from "./schemas";
 export * from "./user";

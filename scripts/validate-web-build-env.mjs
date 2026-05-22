@@ -44,7 +44,12 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
-if (env.VITE_API_URL?.trim() && env.VITE_API_URL.trim() !== "/api") {
+if (env.VITE_USE_LOCAL_API?.trim() === "true") {
+  if (env.VITE_API_URL?.trim() && env.VITE_API_URL.trim() !== "http://localhost:4000") {
+    console.error(`web edge release check failed: VITE_API_URL must be http://localhost:4000 when VITE_USE_LOCAL_API=true, got ${env.VITE_API_URL}`);
+    process.exit(1);
+  }
+} else if (env.VITE_API_URL?.trim() && env.VITE_API_URL.trim() !== "/api") {
   console.error(`web edge release check failed: VITE_API_URL must be /api for the Cloudflare-first deploy path, got ${env.VITE_API_URL}`);
   process.exit(1);
 }

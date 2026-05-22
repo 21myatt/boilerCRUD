@@ -47,12 +47,15 @@ const supabaseAdminKey = rootEnv.SUPABASE_SECRET_KEY ?? rootEnv.SUPABASE_SERVICE
 
 const requiredRootEnv = [
   "DATABASE_URL",
+  "APP_ENV",
   "SUPABASE_URL",
+  "VITE_APP_ENV",
   "VITE_SUPABASE_URL",
   "VITE_SUPABASE_ANON_KEY"
 ];
 
 const requiredMobileEnv = [
+  "EXPO_PUBLIC_APP_ENV",
   "EXPO_PUBLIC_SUPABASE_URL",
   "EXPO_PUBLIC_SUPABASE_ANON_KEY"
 ];

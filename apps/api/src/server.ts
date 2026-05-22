@@ -3,8 +3,10 @@ import path from "node:path";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { AuthError, buildAuthenticatedUser, verifyAccessToken } from "@imsys/auth/middleware";
 import { config as loadEnv } from "dotenv";
-import { logger } from "@imsys/utils";
+import { AppError, logger } from "@imsys/utils";
+import { ZodError } from "zod";
 import { PermissionDeniedError, requirePermission } from "./middleware/role-permission-check";
+import { enforceRateLimit } from "./middleware/rate-limit";
 import { categoriesRoute, categoryIdPattern } from "./routes/categories";
 import { itemsRoute, itemIdPattern } from "./routes/items";
 import { userIdPattern, usersRoute } from "./routes/users";
@@ -85,6 +87,7 @@ const server = createServer(async (request, response) => {
     }
 
     const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
+    enforceRateLimit(request, url.pathname);
 
     if (request.method === "GET" && url.pathname === "/health") {
       sendJson(response, { ok: true });
@@ -238,12 +241,12 @@ const server = createServer(async (request, response) => {
     sendError(response, 404, "Not found");
   } catch (error) {
     if (error instanceof AuthError) {
-      sendError(response, 401, error.message);
+      sendError(response, 401, "Unauthorized");
       return;
     }
 
     if (error instanceof PermissionDeniedError) {
-      sendError(response, 403, error.message);
+      sendError(response, 403, "Forbidden");
       return;
     }
 
@@ -252,9 +255,19 @@ const server = createServer(async (request, response) => {
       return;
     }
 
+    if (error instanceof ZodError) {
+      sendError(response, 400, "Invalid request payload");
+      return;
+    }
+
+    if (error instanceof AppError) {
+      sendError(response, error.statusCode, error.message);
+      return;
+    }
+
     if (error instanceof Error) {
       logger.error("Request failed", error.message);
-      sendError(response, 400, error.message);
+      sendError(response, 500, "Internal server error");
       return;
     }
 

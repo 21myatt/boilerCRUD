@@ -1,0 +1,14 @@
+{
+  "name": "@imsys/tests",
+  "private": true,
+  "version": "0.0.0",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "vitest run --config ../../vitest.config.ts"
+  },
+  "dependencies": {
+    "@imsys/client": "workspace:*",
+    "@imsys/types": "workspace:*",
+    "@imsys/utils": "workspace:*"
+  }
+}

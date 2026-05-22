@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { AppError, normalizeAppEnv } from "@imsys/utils";
 import { setWriteAuditLogForTests } from "../services/audit-logs";
 import { setProfileStoreForTests } from "../services/profiles";
 import { createUser, updateUser } from "../services/users";
@@ -21,10 +22,14 @@ const withEnv = async (nodeEnv: string, callback: () => Promise<void>) => {
   const originalNodeEnv = process.env.NODE_ENV;
   const originalSupabaseUrl = process.env.SUPABASE_URL;
   const originalServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const originalInviteRedirectTo = process.env.INVITE_REDIRECT_TO;
+  const originalInviteRedirectOrigins = process.env.INVITE_REDIRECT_ORIGINS;
 
   process.env.NODE_ENV = nodeEnv;
   process.env.SUPABASE_URL = SUPABASE_URL;
   process.env.SUPABASE_SERVICE_ROLE_KEY = SERVICE_KEY;
+  process.env.INVITE_REDIRECT_TO = "http://localhost:5173";
+  process.env.INVITE_REDIRECT_ORIGINS = "http://localhost:5173,https://app.example.com";
   setProfileStoreForTests(createProfileStore());
   setWriteAuditLogForTests(() => undefined);
 
@@ -37,6 +42,8 @@ const withEnv = async (nodeEnv: string, callback: () => Promise<void>) => {
     process.env.NODE_ENV = originalNodeEnv;
     process.env.SUPABASE_URL = originalSupabaseUrl;
     process.env.SUPABASE_SERVICE_ROLE_KEY = originalServiceKey;
+    process.env.INVITE_REDIRECT_TO = originalInviteRedirectTo;
+    process.env.INVITE_REDIRECT_ORIGINS = originalInviteRedirectOrigins;
   }
 };
 
@@ -79,32 +86,114 @@ test("production user creation uses invite flow without requiring a password", a
   });
 });
 
+test("production invite rejects redirect URLs outside allowlist", async () => {
+  await withEnv("production", async () => {
+    await assert.rejects(
+      () => createUser({
+        email: "invite@example.com",
+        cmsRole: "editor",
+        redirectTo: "https://evil.example.com/claim"
+      }),
+      (error) => {
+        assert.equal(error instanceof AppError, true);
+        assert.equal((error as AppError).statusCode, 400);
+        assert.equal((error as Error).message, "Invalid invite redirect URL");
+        return true;
+      }
+    );
+  });
+});
+
+test("production invite accepts redirect URLs from allowlist origins", async () => {
+  await withEnv("production", async () => {
+    let invited = false;
+
+    globalThis.fetch = (async (input, init) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+
+      if (url === `${SUPABASE_URL}/auth/v1/invite` && method === "POST") {
+        const payload = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        assert.equal(payload.redirect_to, "https://app.example.com/invite/finish");
+        invited = true;
+
+        return jsonResponse({
+          user: {
+            id: "user-invite-2",
+            email: "invite@example.com",
+            created_at: "2026-05-08T00:00:00.000Z",
+            updated_at: "2026-05-08T00:00:00.000Z",
+            banned_until: null
+          }
+        });
+      }
+
+      throw new Error(`Unexpected fetch: ${method} ${url}`);
+    }) as typeof fetch;
+
+    await createUser({
+      email: "invite@example.com",
+      cmsRole: "editor",
+      redirectTo: "https://app.example.com/invite/finish"
+    });
+
+    assert.equal(invited, true);
+  });
+});
+
+test("password creation rejects weak passwords", async () => {
+  await withEnv("development", async () => {
+    await assert.rejects(
+      () => createUser({
+        email: "weak@example.com",
+        cmsRole: "viewer",
+        password: "weakpass"
+      }),
+      (error) => {
+        assert.equal(error instanceof AppError, true);
+        assert.equal((error as AppError).statusCode, 400);
+        assert.equal(
+          (error as Error).message,
+          "Password must be at least 12 characters and include uppercase, lowercase, and number"
+        );
+        return true;
+      }
+    );
+  });
+});
+
 const createProfileStore = (seed: Array<{
   id: string;
+  appEnv?: string;
   email: string;
   role: string;
   disabled: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }> = []) => {
-  const rows = new Map(seed.map((row) => [row.id, {
+  const rows = new Map(seed.map((row) => {
+    const appEnv = row.appEnv ?? normalizeAppEnv(process.env.NODE_ENV);
+    return [`${row.id}:${appEnv}`, {
     ...row,
+    appEnv,
     createdAt: row.createdAt ?? new Date("2026-05-08T00:00:00.000Z"),
     updatedAt: row.updatedAt ?? new Date("2026-05-08T00:00:00.000Z")
-  }]));
+    }];
+  }));
 
   return {
-    getById: async (id: string) => rows.get(id) ?? null,
-    list: async () => [...rows.values()],
+    getById: async (id: string, appEnv: string) => rows.get(`${id}:${appEnv}`) ?? null,
+    list: async (appEnv: string) => [...rows.values()].filter((row) => row.appEnv === appEnv),
     upsert: async (row: {
       id: string;
+      appEnv: string;
       email: string;
       role: string;
       disabled: boolean;
       createdAt: Date;
       updatedAt: Date;
     }) => {
-      rows.set(row.id, row);
+      rows.set(`${row.id}:${row.appEnv}`, row);
     }
   };
 };
@@ -169,7 +258,7 @@ test("password updates still call auth admin update", async () => {
 
       if (url === `${SUPABASE_URL}/auth/v1/admin/users/user-1` && method === "PUT") {
         const payload = JSON.parse(String(init?.body)) as Record<string, unknown>;
-        assert.deepEqual(payload, { password: "temp-pass" });
+        assert.deepEqual(payload, { password: "TempPassword1" });
         sawPasswordUpdate = true;
 
         return jsonResponse({
@@ -187,11 +276,49 @@ test("password updates still call auth admin update", async () => {
     }) as typeof fetch;
 
     const user = await updateUser("user-1", {
-      password: "temp-pass"
+      password: "TempPassword1"
     });
 
     assert.equal(user?.cmsRole, "viewer");
     assert.equal(sawPasswordUpdate, true);
+  });
+});
+
+test("password reset rejects weak passwords", async () => {
+  await withEnv("production", async () => {
+    globalThis.fetch = (async (input, init) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+
+      if (url === `${SUPABASE_URL}/auth/v1/admin/users/user-1` && method === "GET") {
+        return jsonResponse({
+          user: {
+            id: "user-1",
+            email: "person@example.com",
+            created_at: "2026-05-08T00:00:00.000Z",
+            updated_at: "2026-05-08T00:00:00.000Z",
+            banned_until: null
+          }
+        });
+      }
+
+      throw new Error(`Unexpected fetch: ${method} ${url}`);
+    }) as typeof fetch;
+
+    await assert.rejects(
+      () => updateUser("user-1", {
+        password: "shortpass"
+      }),
+      (error) => {
+        assert.equal(error instanceof AppError, true);
+        assert.equal((error as AppError).statusCode, 400);
+        assert.equal(
+          (error as Error).message,
+          "Password must be at least 12 characters and include uppercase, lowercase, and number"
+        );
+        return true;
+      }
+    );
   });
 });
 

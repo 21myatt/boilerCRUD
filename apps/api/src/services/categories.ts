@@ -2,6 +2,7 @@ import { and, desc, eq } from "drizzle-orm";
 import type { Category, CategoryCreateInput, CategoryUpdateInput } from "@imsys/types";
 import { getDb } from "@imsys/db";
 import { categories } from "@imsys/db/schema";
+import { getAppEnv } from "../lib/app-env";
 
 const mapRow = (row: typeof categories.$inferSelect): Category => ({
   id: row.id,
@@ -10,12 +11,14 @@ const mapRow = (row: typeof categories.$inferSelect): Category => ({
   updatedAt: new Date(row.updatedAt).toISOString()
 });
 
+const appEnv = () => getAppEnv();
+
 export const listCategories = async (userId: string): Promise<Category[]> => {
   const db = getDb();
   const rows = await db
     .select()
     .from(categories)
-    .where(eq(categories.userId, userId))
+    .where(and(eq(categories.userId, userId), eq(categories.appEnv, appEnv())))
     .orderBy(desc(categories.createdAt));
 
   return rows.map(mapRow);
@@ -26,7 +29,7 @@ export const getCategory = async (userId: string, id: string): Promise<Category 
   const rows = await db
     .select()
     .from(categories)
-    .where(and(eq(categories.id, id), eq(categories.userId, userId)))
+    .where(and(eq(categories.id, id), eq(categories.userId, userId), eq(categories.appEnv, appEnv())))
     .limit(1);
 
   return rows[0] ? mapRow(rows[0]) : null;
@@ -36,6 +39,7 @@ export const createCategory = async (userId: string, input: CategoryCreateInput)
   const db = getDb();
   const row = {
     id: crypto.randomUUID(),
+    appEnv: appEnv(),
     userId,
     name: input.name,
     createdAt: new Date(),
@@ -67,7 +71,7 @@ export const updateCategory = async (
       name: nextName,
       updatedAt
     })
-    .where(and(eq(categories.id, id), eq(categories.userId, userId)));
+    .where(and(eq(categories.id, id), eq(categories.userId, userId), eq(categories.appEnv, appEnv())));
 
   return {
     ...existing,
@@ -84,6 +88,6 @@ export const deleteCategory = async (userId: string, id: string): Promise<boolea
     return false;
   }
 
-  await db.delete(categories).where(and(eq(categories.id, id), eq(categories.userId, userId)));
+  await db.delete(categories).where(and(eq(categories.id, id), eq(categories.userId, userId), eq(categories.appEnv, appEnv())));
   return true;
 };

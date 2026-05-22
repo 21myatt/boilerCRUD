@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "IMSys Mobile",
-    "slug": "imsys-mobile",
-    "scheme": "imsys"
+    "name": "Starter Workspace Mobile",
+    "slug": "starter-workspace-mobile",
+    "scheme": "starter-workspace"
   }
 }

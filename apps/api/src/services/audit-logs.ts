@@ -1,7 +1,8 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "@imsys/db";
 import { auditLogs } from "@imsys/db/schema";
 import type { AuditLogEntry } from "@imsys/types";
+import { getAppEnv } from "../lib/app-env";
 
 type AuditPayload = {
   actorUserId?: string | null;
@@ -67,6 +68,7 @@ export const writeAuditLog = async ({
 
   await db.insert(auditLogs).values({
     id: crypto.randomUUID(),
+    appEnv: getAppEnv(),
     actorUserId: actorUserId ?? null,
     targetUserId: targetUserId ?? null,
     action,
@@ -89,6 +91,7 @@ export const listRecentAuditLogs = async (limit = 25) => {
   const rows = await db
     .select()
     .from(auditLogs)
+    .where(eq(auditLogs.appEnv, getAppEnv()))
     .orderBy(desc(auditLogs.createdAt))
     .limit(limit);
 
@@ -108,7 +111,7 @@ export const listAuditLogsForTargetUser = async (targetUserId: string, limit = 2
   const rows = await db
     .select()
     .from(auditLogs)
-    .where(eq(auditLogs.targetUserId, targetUserId))
+    .where(and(eq(auditLogs.targetUserId, targetUserId), eq(auditLogs.appEnv, getAppEnv())))
     .orderBy(desc(auditLogs.createdAt))
     .limit(limit);
 

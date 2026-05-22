@@ -19,8 +19,6 @@ export const requirePermission = <TResource extends PermissionResource>(
   });
 
   if (!canAccess(permissionMap, resource, action)) {
-    throw new PermissionDeniedError(
-      `Role "${user.cmsRole}" cannot ${action} ${resource}`
-    );
+    throw new PermissionDeniedError("Forbidden");
   }
 };

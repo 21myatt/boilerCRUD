@@ -115,7 +115,7 @@ export const ItemTable = ({ accessToken, viewerEmail, onSignOut }: ItemTableProp
       <div className="relative z-[1] mx-auto grid max-w-[1120px] gap-3">
         <header className="grid gap-3 rounded-[20px] border border-[var(--border)] bg-[var(--panel)] p-[18px] shadow-[var(--shadow)] backdrop-blur-[12px]">
           <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
-            <Badge variant="secondary">IMSys dashboard</Badge>
+            <Badge variant="secondary">Starter dashboard</Badge>
             <div className="inline-flex flex-wrap items-center gap-2 text-[0.92rem] text-[var(--muted)]">
               <span>{viewerEmail}</span>
               <Button variant="ghost" size="sm" type="button" onClick={onSignOut}>

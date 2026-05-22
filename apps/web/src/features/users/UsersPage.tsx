@@ -159,6 +159,9 @@ export const UsersPage = () => {
               ? "Production creates users with an invite email. Temporary password is optional."
               : "Local/dev creates users with a temporary password."}
           </p>
+          <p className="m-0 text-sm text-[var(--muted)]">
+            Passwords must be at least 12 characters and include uppercase, lowercase, and number.
+          </p>
           <Button
             type="button"
             onClick={() => void handleCreate()}
@@ -269,6 +272,9 @@ export const UsersPage = () => {
                           Reset password
                         </Button>
                       </div>
+                      <p className="m-0">
+                        Passwords must be at least 12 characters and include uppercase, lowercase, and number.
+                      </p>
                     </div>
                   )}
 

@@ -1,8 +1,23 @@
-import type { Item, ItemCreateInput, ItemUpdateInput } from "@imsys/types";
+import {
+  apiEnvelopeSchema,
+  itemCreateInputSchema,
+  itemListSchema,
+  itemSchema,
+  itemUpdateInputSchema,
+  type Item,
+  type ItemCreateInput,
+  type ItemUpdateInput
+} from "@imsys/types";
 import { requestEnvelope, type RequestOptions } from "./request";
 
 export const getItems = async (baseUrl: string, options?: RequestOptions): Promise<Item[]> => {
-  const body = await requestEnvelope<Item[]>(baseUrl, "/items", undefined, options);
+  const body = await requestEnvelope<Item[]>(
+    baseUrl,
+    "/items",
+    undefined,
+    options,
+    apiEnvelopeSchema(itemListSchema)
+  );
   return body.data ?? [];
 };
 
@@ -13,8 +28,8 @@ export const createItem = async (
 ): Promise<Item> => {
   const body = await requestEnvelope<Item>(baseUrl, "/items", {
     method: "POST",
-    body: JSON.stringify(input)
-  }, options);
+    body: JSON.stringify(itemCreateInputSchema.parse(input))
+  }, options, apiEnvelopeSchema(itemSchema));
 
   return body.data as Item;
 };
@@ -27,8 +42,8 @@ export const updateItem = async (
 ): Promise<Item> => {
   const body = await requestEnvelope<Item>(baseUrl, `/items/${id}`, {
     method: "PUT",
-    body: JSON.stringify(input)
-  }, options);
+    body: JSON.stringify(itemUpdateInputSchema.parse(input))
+  }, options, apiEnvelopeSchema(itemSchema));
 
   return body.data as Item;
 };

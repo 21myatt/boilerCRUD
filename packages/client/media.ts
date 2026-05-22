@@ -8,12 +8,14 @@ const slugifySegment = (value: string) =>
     .replace(/-{2,}/g, "-");
 
 export const buildAssetObjectPath = (
+  appEnv: string,
   userId: string,
   fileName: string,
   now = new Date()
 ) => {
   const safeName = slugifySegment(fileName) || "upload";
-  return `${userId}/${now.toISOString()}-${safeName}`;
+  const safeEnv = slugifySegment(appEnv) || "development";
+  return `${safeEnv}/${userId}/${now.toISOString()}-${safeName}`;
 };
 
 export const inferAssetKind = (mimeType: string) => {

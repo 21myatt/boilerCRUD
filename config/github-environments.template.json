@@ -1,0 +1,51 @@
+{
+  "staging": {
+    "variables": {
+      "APP_NAME": "your-app-web",
+      "APP_ENV": "staging",
+      "CLOUDFLARE_WORKER_NAME": "your-app-web-staging",
+      "CORS_ORIGINS": "https://your-staging.example.com",
+      "SUPABASE_URL": "https://your-staging-project-ref.supabase.co",
+      "VITE_APP_ENV": "staging",
+      "VITE_SUPABASE_URL": "https://your-staging-project-ref.supabase.co",
+      "VITE_SUPABASE_ANON_KEY": "your-staging-anon-key",
+      "VITE_SENTRY_DSN": "your-staging-sentry-dsn",
+      "VITE_POSTHOG_KEY": "your-staging-posthog-key",
+      "VITE_POSTHOG_HOST": "https://app.posthog.com",
+      "E2E_BASE_URL": "https://your-staging-worker.example.com",
+      "E2E_SUPABASE_URL": "https://your-staging-project-ref.supabase.co"
+    },
+    "secrets": {
+      "CLOUDFLARE_API_TOKEN": "set-in-github-environment",
+      "CLOUDFLARE_ACCOUNT_ID": "set-in-github-environment",
+      "SUPABASE_SERVICE_ROLE_KEY": "set-in-github-environment",
+      "DATABASE_URL": "set-in-github-environment",
+      "SENTRY_DSN": "set-in-github-environment",
+      "E2E_SUPABASE_ANON_KEY": "set-in-github-environment",
+      "E2E_USER_EMAIL": "set-in-github-environment",
+      "E2E_USER_PASSWORD": "set-in-github-environment"
+    }
+  },
+  "production": {
+    "variables": {
+      "APP_NAME": "your-app-web",
+      "APP_ENV": "production",
+      "CLOUDFLARE_WORKER_NAME": "your-app-web",
+      "CORS_ORIGINS": "https://your-app.example.com",
+      "SUPABASE_URL": "https://your-production-project-ref.supabase.co",
+      "VITE_APP_ENV": "production",
+      "VITE_SUPABASE_URL": "https://your-production-project-ref.supabase.co",
+      "VITE_SUPABASE_ANON_KEY": "your-production-anon-key",
+      "VITE_SENTRY_DSN": "your-production-sentry-dsn",
+      "VITE_POSTHOG_KEY": "your-production-posthog-key",
+      "VITE_POSTHOG_HOST": "https://app.posthog.com"
+    },
+    "secrets": {
+      "CLOUDFLARE_API_TOKEN": "set-in-github-environment",
+      "CLOUDFLARE_ACCOUNT_ID": "set-in-github-environment",
+      "SUPABASE_SERVICE_ROLE_KEY": "set-in-github-environment",
+      "DATABASE_URL": "set-in-github-environment",
+      "SENTRY_DSN": "set-in-github-environment"
+    }
+  }
+}

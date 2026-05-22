@@ -1,3 +1,5 @@
+import type { ZodTypeAny } from "zod";
+
 type ApiEnvelope<T> = {
   data?: T;
   error?: string;
@@ -33,7 +35,8 @@ export const requestEnvelope = async <T>(
   baseUrl: string,
   path: string,
   init?: RequestInit,
-  options?: RequestOptions
+  options?: RequestOptions,
+  schema?: ZodTypeAny
 ): Promise<ApiEnvelope<T>> => {
   const accessToken = await options?.getAccessToken?.();
   const targetUrl = buildTargetUrl(baseUrl, path);
@@ -53,13 +56,14 @@ export const requestEnvelope = async <T>(
     throw new Error(`${message} while calling ${targetUrl.toString()}`);
   }
 
-  const body = (await response.json()) as ApiEnvelope<T>;
+  const body = await response.json() as unknown;
+  const parsedBody = schema ? schema.parse(body) as ApiEnvelope<T> : body as ApiEnvelope<T>;
 
   if (!response.ok) {
-    throw new Error(body.error ?? `Request failed with ${response.status}`);
+    throw new Error(parsedBody.error ?? `Request failed with ${response.status}`);
   }
 
-  return body;
+  return parsedBody;
 };
 
 export type { ApiEnvelope, RequestOptions };

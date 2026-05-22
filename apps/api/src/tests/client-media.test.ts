@@ -11,12 +11,13 @@ import {
 
 test("builds deterministic storage object paths", () => {
   const path = buildAssetObjectPath(
+    "production",
     "user-123",
     "Hero Banner.PNG",
     new Date("2026-05-06T10:11:12.000Z")
   );
 
-  assert.equal(path, "user-123/2026-05-06T10:11:12.000Z-hero-banner.png");
+  assert.equal(path, "production/user-123/2026-05-06T10:11:12.000Z-hero-banner.png");
 });
 
 test("infers asset kind from mime type", () => {

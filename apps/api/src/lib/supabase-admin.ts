@@ -1,3 +1,5 @@
+import { getAppEnv } from "./app-env";
+
 const getSupabaseUrl = () => {
   const supabaseUrl = process.env.SUPABASE_URL;
 
@@ -23,7 +25,8 @@ const getServiceRoleKey = () => {
 export const getSupabaseAdminHeaders = () => ({
   apikey: getServiceRoleKey(),
   authorization: `Bearer ${getServiceRoleKey()}`,
-  "content-type": "application/json"
+  "content-type": "application/json",
+  "x-app-env": getAppEnv()
 });
 
 export const getSupabaseAdminUrl = (pathname: string) =>

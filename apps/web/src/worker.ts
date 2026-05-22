@@ -1,5 +1,8 @@
 import { canAccess, getPermissionMapForActor, type CmsRole, normalizeCmsRole, ADMIN_EMAIL, VIEWER_EMAIL } from "@imsys/auth";
+import { captureException, withSentry } from "@sentry/cloudflare";
 import { createRemoteJWKSet, jwtVerify } from "jose";
+import { ZodError } from "zod";
+import { normalizeAppEnv } from "./lib/app-env";
 import type {
   AuditLogEntry,
   Category,
@@ -14,6 +17,23 @@ import type {
   ManagedUserUpdateInput,
   Profile,
 } from "@imsys/types";
+import {
+  auditLogListSchema,
+  categoryCreateInputSchema,
+  categoryListSchema,
+  categorySchema,
+  categoryUpdateInputSchema,
+  diagnosticsResponseSchema,
+  itemCreateInputSchema,
+  itemListSchema,
+  itemSchema,
+  itemUpdateInputSchema,
+  managedUserCreateInputSchema,
+  managedUserListSchema,
+  managedUserSchema,
+  managedUserUpdateInputSchema,
+  schemaStateSchema
+} from "@imsys/types";
 
 type AssetBinding = {
   fetch: (request: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
@@ -24,6 +44,13 @@ interface Env {
   APP_ENV?: string;
   APP_NAME?: string;
   CORS_ORIGINS?: string;
+  INVITE_REDIRECT_ORIGINS?: string;
+  INVITE_REDIRECT_TO?: string;
+  RATE_LIMIT_ADMIN_MAX?: string;
+  RATE_LIMIT_MAX?: string;
+  RATE_LIMIT_WINDOW_MS?: string;
+  TRACE_ID?: string;
+  SENTRY_DSN?: string;
   SUPABASE_URL?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
   SUPABASE_SECRET_KEY?: string;
@@ -36,6 +63,12 @@ type VerifiedIdentity = {
   appMetadata: unknown;
   accessToken: string;
 };
+
+declare global {
+  var __IMSYS_VERIFY_ACCESS_TOKEN__:
+    | ((authorizationHeader: string | null, env: Env) => Promise<VerifiedIdentity>)
+    | undefined;
+}
 
 type AuthenticatedActor = {
   id: string;
@@ -120,13 +153,63 @@ type SchemaStateRow = {
 };
 
 let jwksByIssuer = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
+let rateLimitBuckets = new Map<string, { count: number; resetAt: number }>();
+let rateLimitCleanupCounter = 0;
 
-const APP_SCHEMA_VERSION = "2026-05-08-next-backend-v1";
+const APP_SCHEMA_VERSION = "2026-05-22-env-scoped-data-v1";
+
+class HttpError extends Error {
+  constructor(
+    message: string,
+    readonly status: number
+  ) {
+    super(message);
+    this.name = "HttpError";
+  }
+}
+
+const assertPasswordStrength = (password?: string) => {
+  if (!password) {
+    return;
+  }
+
+  if (
+    password.length < 12
+    || !/[A-Z]/.test(password)
+    || !/[a-z]/.test(password)
+    || !/\d/.test(password)
+  ) {
+    throw new HttpError(
+      "Password must be at least 12 characters and include uppercase, lowercase, and number",
+      400
+    );
+  }
+};
 
 const json = (data: unknown, init?: ResponseInit) => {
   const headers = new Headers(init?.headers);
   headers.set("content-type", "application/json; charset=utf-8");
   return new Response(JSON.stringify(data), { ...init, headers });
+};
+
+const getAppEnv = (env: Env) => normalizeAppEnv(env.APP_ENV ?? "production");
+
+const getTraceId = (env: Env) => env.TRACE_ID?.trim() || null;
+
+const logEvent = (
+  level: "info" | "warn" | "error",
+  message: string,
+  env: Env,
+  extra?: Record<string, unknown>
+) => {
+  console[level](JSON.stringify({
+    level,
+    message,
+    trace_id: getTraceId(env),
+    service: env.APP_NAME ?? "your-app-web",
+    environment: env.APP_ENV ?? "production",
+    ...(extra ?? {}),
+  }));
 };
 
 const getAllowedOrigin = (request: Request, env: Env) => {
@@ -160,6 +243,9 @@ const withCorsHeaders = (response: Response, request: Request, env: Env) => {
   headers.set("access-control-allow-headers", "Authorization,Content-Type");
   headers.set("access-control-max-age", "86400");
   headers.set("x-edge-runtime", "cloudflare-workers");
+  if (getTraceId(env)) {
+    headers.set("x-trace-id", getTraceId(env) as string);
+  }
 
   return new Response(response.body, {
     status: response.status,
@@ -192,10 +278,38 @@ const getServiceRoleKey = (env: Env) => {
   return value;
 };
 
+const getAllowedInviteOrigins = (env: Env) => {
+  const configuredOrigins = (env.INVITE_REDIRECT_ORIGINS ?? env.CORS_ORIGINS ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  if (env.INVITE_REDIRECT_TO?.trim()) {
+    configuredOrigins.push(new URL(env.INVITE_REDIRECT_TO.trim()).origin);
+  }
+
+  return new Set(configuredOrigins);
+};
+
+const validateInviteRedirect = (env: Env, redirectTo?: string) => {
+  if (!redirectTo) {
+    return;
+  }
+
+  const allowedOrigins = getAllowedInviteOrigins(env);
+  const redirectUrl = new URL(redirectTo);
+
+  if (allowedOrigins.size === 0 || !allowedOrigins.has(redirectUrl.origin)) {
+    throw new HttpError("Invalid invite redirect URL", 400);
+  }
+};
+
 const getAdminHeaders = (env: Env, extras?: HeadersInit) => ({
   apikey: getServiceRoleKey(env),
   authorization: `Bearer ${getServiceRoleKey(env)}`,
   "content-type": "application/json",
+  "x-app-env": getAppEnv(env),
+  ...(getTraceId(env) ? { "x-trace-id": getTraceId(env) as string } : {}),
   ...(extras ?? {}),
 });
 
@@ -243,17 +357,28 @@ const getJwtSet = (supabaseUrl: string) => {
 };
 
 const verifyAccessToken = async (authorizationHeader: string | null, env: Env): Promise<VerifiedIdentity> => {
+  const testHook = globalThis.__IMSYS_VERIFY_ACCESS_TOKEN__;
+  if (typeof testHook === "function" && authorizationHeader) {
+    return testHook(authorizationHeader, env);
+  }
+
   if (!authorizationHeader?.startsWith("Bearer ")) {
-    throw new Error("Missing bearer token");
+    throw new HttpError("Unauthorized", 401);
   }
 
   const accessToken = authorizationHeader.slice("Bearer ".length).trim();
   const supabaseUrl = getSupabaseUrl(env);
   const issuer = `${supabaseUrl}/auth/v1`;
-  const { payload } = await jwtVerify(accessToken, getJwtSet(supabaseUrl), { issuer });
+  let payload: Awaited<ReturnType<typeof jwtVerify>>["payload"];
+
+  try {
+    ({ payload } = await jwtVerify(accessToken, getJwtSet(supabaseUrl), { issuer }));
+  } catch {
+    throw new HttpError("Unauthorized", 401);
+  }
 
   if (typeof payload.sub !== "string" || !payload.sub) {
-    throw new Error("Invalid auth token subject");
+    throw new HttpError("Unauthorized", 401);
   }
 
   return {
@@ -281,7 +406,7 @@ const mapProfile = (row: ProfileRow): Profile => ({
 
 const getProfileById = async (env: Env, id: string): Promise<Profile | null> => {
   const response = await fetch(
-    `${getRestUrl(env, "/profiles")}?id=eq.${encodeURIComponent(id)}&select=*`,
+    `${getRestUrl(env, "/profiles")}?id=eq.${encodeURIComponent(id)}&app_env=eq.${encodeURIComponent(getAppEnv(env))}&select=*`,
     {
       headers: getAdminHeaders(env),
     }
@@ -292,7 +417,7 @@ const getProfileById = async (env: Env, id: string): Promise<Profile | null> => 
 
 const listProfiles = async (env: Env): Promise<Profile[]> => {
   const response = await fetch(
-    `${getRestUrl(env, "/profiles")}?select=*&order=created_at.desc`,
+    `${getRestUrl(env, "/profiles")}?app_env=eq.${encodeURIComponent(getAppEnv(env))}&select=*&order=created_at.desc`,
     { headers: getAdminHeaders(env) }
   );
   const rows = await parseJson<ProfileRow[]>(response);
@@ -322,13 +447,14 @@ const upsertProfile = async (
   const createdAt = existing?.createdAt ?? new Date().toISOString();
   const updatedAt = new Date().toISOString();
 
-  const response = await fetch(`${getRestUrl(env, "/profiles")}?on_conflict=id`, {
+  const response = await fetch(`${getRestUrl(env, "/profiles")}?on_conflict=id,app_env`, {
     method: "POST",
     headers: getAdminHeaders(env, {
       Prefer: "resolution=merge-duplicates,return=representation",
     }),
     body: JSON.stringify({
       id: input.id,
+      app_env: getAppEnv(env),
       email: input.email,
       role,
       disabled,
@@ -380,8 +506,56 @@ const requirePermission = (actor: AuthenticatedActor, resource: "items" | "categ
   });
 
   if (!canAccess(permissionMap, resource, action)) {
-    throw new Error(`Role "${actor.cmsRole}" cannot ${action} ${resource}`);
+    throw new HttpError("Forbidden", 403);
   }
+};
+
+const getRateLimitWindowMs = (env: Env) => Number(env.RATE_LIMIT_WINDOW_MS ?? "60000");
+const getRateLimitMax = (env: Env, pathname: string) => Number(
+  pathname.startsWith("/api/admin/") || pathname.startsWith("/api/users")
+    ? env.RATE_LIMIT_ADMIN_MAX ?? "20"
+    : env.RATE_LIMIT_MAX ?? "120"
+);
+
+const getClientAddress = (request: Request) =>
+  request.headers.get("cf-connecting-ip")
+  ?? request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+  ?? "unknown";
+
+const enforceRateLimit = (request: Request, env: Env, pathname: string) => {
+  const now = Date.now();
+  rateLimitCleanupCounter += 1;
+
+  if (rateLimitCleanupCounter % 100 === 0) {
+    for (const [key, bucket] of rateLimitBuckets.entries()) {
+      if (bucket.resetAt <= now) {
+        rateLimitBuckets.delete(key);
+      }
+    }
+  }
+
+  const clientAddress = getClientAddress(request);
+  const routeGroup = pathname.startsWith("/api/admin/") || pathname.startsWith("/api/users")
+    ? "admin"
+    : "default";
+  const key = `${clientAddress}:${routeGroup}`;
+  const current = rateLimitBuckets.get(key);
+  const windowMs = getRateLimitWindowMs(env);
+  const limit = getRateLimitMax(env, pathname);
+
+  if (!current || current.resetAt <= now) {
+    rateLimitBuckets.set(key, {
+      count: 1,
+      resetAt: now + windowMs
+    });
+    return;
+  }
+
+  if (current.count >= limit) {
+    throw new HttpError("Too many requests", 429);
+  }
+
+  current.count += 1;
 };
 
 const mapItem = (row: ItemRow): Item => ({
@@ -426,8 +600,9 @@ const readJson = async <T>(request: Request): Promise<T> => {
 };
 
 const getCategoryForUser = async (env: Env, userId: string, categoryId: string) => {
+  const appEnv = getAppEnv(env);
   const response = await fetch(
-    `${getRestUrl(env, "/categories")}?id=eq.${encodeURIComponent(categoryId)}&user_id=eq.${encodeURIComponent(userId)}&select=*`,
+    `${getRestUrl(env, "/categories")}?id=eq.${encodeURIComponent(categoryId)}&user_id=eq.${encodeURIComponent(userId)}&app_env=eq.${encodeURIComponent(appEnv)}&select=*`,
     { headers: getAdminHeaders(env) }
   );
   const rows = await parseJson<CategoryRow[]>(response);
@@ -435,8 +610,9 @@ const getCategoryForUser = async (env: Env, userId: string, categoryId: string) 
 };
 
 const getItemForUser = async (env: Env, userId: string, itemId: string) => {
+  const appEnv = getAppEnv(env);
   const response = await fetch(
-    `${getRestUrl(env, "/items")}?id=eq.${encodeURIComponent(itemId)}&user_id=eq.${encodeURIComponent(userId)}&select=*`,
+    `${getRestUrl(env, "/items")}?id=eq.${encodeURIComponent(itemId)}&user_id=eq.${encodeURIComponent(userId)}&app_env=eq.${encodeURIComponent(appEnv)}&select=*`,
     { headers: getAdminHeaders(env) }
   );
   const rows = await parseJson<ItemRow[]>(response);
@@ -444,19 +620,21 @@ const getItemForUser = async (env: Env, userId: string, itemId: string) => {
 };
 
 const getItems = async (env: Env, userId: string): Promise<Item[]> => {
+  const appEnv = getAppEnv(env);
   const response = await fetch(
-    `${getRestUrl(env, "/items")}?user_id=eq.${encodeURIComponent(userId)}&select=*&order=created_at.desc`,
+    `${getRestUrl(env, "/items")}?user_id=eq.${encodeURIComponent(userId)}&app_env=eq.${encodeURIComponent(appEnv)}&select=*&order=created_at.desc`,
     { headers: getAdminHeaders(env) }
   );
   const rows = await parseJson<ItemRow[]>(response);
-  return rows.map(mapItem);
+  return itemListSchema.parse(rows.map(mapItem));
 };
 
 const createItem = async (env: Env, userId: string, input: ItemCreateInput): Promise<Item> => {
+  const appEnv = getAppEnv(env);
   if (input.categoryId) {
     const category = await getCategoryForUser(env, userId, input.categoryId);
     if (!category) {
-      throw new Error("Category not found");
+      throw new HttpError("Category not found", 404);
     }
   }
 
@@ -466,16 +644,18 @@ const createItem = async (env: Env, userId: string, input: ItemCreateInput): Pro
       Prefer: "return=representation",
     }),
     body: JSON.stringify({
+      app_env: appEnv,
       user_id: userId,
       category_id: input.categoryId ?? null,
       name: input.name,
     }),
   });
   const rows = await parseJson<ItemRow[]>(response);
-  return mapItem(rows[0]);
+  return itemSchema.parse(mapItem(rows[0]));
 };
 
 const updateItem = async (env: Env, userId: string, itemId: string, input: ItemUpdateInput): Promise<Item | null> => {
+  const appEnv = getAppEnv(env);
   const existing = await getItemForUser(env, userId, itemId);
   if (!existing) {
     return null;
@@ -485,12 +665,12 @@ const updateItem = async (env: Env, userId: string, itemId: string, input: ItemU
   if (categoryId) {
     const category = await getCategoryForUser(env, userId, categoryId);
     if (!category) {
-      throw new Error("Category not found");
+      throw new HttpError("Category not found", 404);
     }
   }
 
   const response = await fetch(
-    `${getRestUrl(env, "/items")}?id=eq.${encodeURIComponent(itemId)}&user_id=eq.${encodeURIComponent(userId)}`,
+    `${getRestUrl(env, "/items")}?id=eq.${encodeURIComponent(itemId)}&user_id=eq.${encodeURIComponent(userId)}&app_env=eq.${encodeURIComponent(appEnv)}`,
     {
       method: "PATCH",
       headers: getAdminHeaders(env, {
@@ -503,17 +683,18 @@ const updateItem = async (env: Env, userId: string, itemId: string, input: ItemU
     }
   );
   const rows = await parseJson<ItemRow[]>(response);
-  return rows[0] ? mapItem(rows[0]) : null;
+  return rows[0] ? itemSchema.parse(mapItem(rows[0])) : null;
 };
 
 const deleteItem = async (env: Env, userId: string, itemId: string): Promise<boolean> => {
+  const appEnv = getAppEnv(env);
   const existing = await getItemForUser(env, userId, itemId);
   if (!existing) {
     return false;
   }
 
   await fetch(
-    `${getRestUrl(env, "/items")}?id=eq.${encodeURIComponent(itemId)}&user_id=eq.${encodeURIComponent(userId)}`,
+    `${getRestUrl(env, "/items")}?id=eq.${encodeURIComponent(itemId)}&user_id=eq.${encodeURIComponent(userId)}&app_env=eq.${encodeURIComponent(appEnv)}`,
     {
       method: "DELETE",
       headers: getAdminHeaders(env),
@@ -523,17 +704,19 @@ const deleteItem = async (env: Env, userId: string, itemId: string): Promise<boo
 };
 
 const getCategories = async (env: Env, userId: string): Promise<Category[]> => {
+  const appEnv = getAppEnv(env);
   const response = await fetch(
-    `${getRestUrl(env, "/categories")}?user_id=eq.${encodeURIComponent(userId)}&select=*&order=created_at.desc`,
+    `${getRestUrl(env, "/categories")}?user_id=eq.${encodeURIComponent(userId)}&app_env=eq.${encodeURIComponent(appEnv)}&select=*&order=created_at.desc`,
     { headers: getAdminHeaders(env) }
   );
   const rows = await parseJson<CategoryRow[]>(response);
-  return rows.map(mapCategory);
+  return categoryListSchema.parse(rows.map(mapCategory));
 };
 
 const getCategoryById = async (env: Env, userId: string, categoryId: string) => {
+  const appEnv = getAppEnv(env);
   const response = await fetch(
-    `${getRestUrl(env, "/categories")}?id=eq.${encodeURIComponent(categoryId)}&user_id=eq.${encodeURIComponent(userId)}&select=*`,
+    `${getRestUrl(env, "/categories")}?id=eq.${encodeURIComponent(categoryId)}&user_id=eq.${encodeURIComponent(userId)}&app_env=eq.${encodeURIComponent(appEnv)}&select=*`,
     { headers: getAdminHeaders(env) }
   );
   const rows = await parseJson<CategoryRow[]>(response);
@@ -541,28 +724,31 @@ const getCategoryById = async (env: Env, userId: string, categoryId: string) => 
 };
 
 const createCategory = async (env: Env, userId: string, input: CategoryCreateInput): Promise<Category> => {
+  const appEnv = getAppEnv(env);
   const response = await fetch(getRestUrl(env, "/categories"), {
     method: "POST",
     headers: getAdminHeaders(env, {
       Prefer: "return=representation",
     }),
     body: JSON.stringify({
+      app_env: appEnv,
       user_id: userId,
       name: input.name,
     }),
   });
   const rows = await parseJson<CategoryRow[]>(response);
-  return mapCategory(rows[0]);
+  return categorySchema.parse(mapCategory(rows[0]));
 };
 
 const updateCategory = async (env: Env, userId: string, categoryId: string, input: CategoryUpdateInput): Promise<Category | null> => {
+  const appEnv = getAppEnv(env);
   const existing = await getCategoryById(env, userId, categoryId);
   if (!existing) {
     return null;
   }
 
   const response = await fetch(
-    `${getRestUrl(env, "/categories")}?id=eq.${encodeURIComponent(categoryId)}&user_id=eq.${encodeURIComponent(userId)}`,
+    `${getRestUrl(env, "/categories")}?id=eq.${encodeURIComponent(categoryId)}&user_id=eq.${encodeURIComponent(userId)}&app_env=eq.${encodeURIComponent(appEnv)}`,
     {
       method: "PATCH",
       headers: getAdminHeaders(env, {
@@ -574,17 +760,18 @@ const updateCategory = async (env: Env, userId: string, categoryId: string, inpu
     }
   );
   const rows = await parseJson<CategoryRow[]>(response);
-  return rows[0] ? mapCategory(rows[0]) : null;
+  return rows[0] ? categorySchema.parse(mapCategory(rows[0])) : null;
 };
 
 const deleteCategory = async (env: Env, userId: string, categoryId: string): Promise<boolean> => {
+  const appEnv = getAppEnv(env);
   const existing = await getCategoryById(env, userId, categoryId);
   if (!existing) {
     return false;
   }
 
   await fetch(
-    `${getRestUrl(env, "/categories")}?id=eq.${encodeURIComponent(categoryId)}&user_id=eq.${encodeURIComponent(userId)}`,
+    `${getRestUrl(env, "/categories")}?id=eq.${encodeURIComponent(categoryId)}&user_id=eq.${encodeURIComponent(userId)}&app_env=eq.${encodeURIComponent(appEnv)}`,
     {
       method: "DELETE",
       headers: getAdminHeaders(env),
@@ -607,6 +794,7 @@ const writeAuditLog = async (
     method: "POST",
     headers: getAdminHeaders(env),
     body: JSON.stringify({
+      app_env: getAppEnv(env),
       actor_user_id: payload.actorUserId ?? null,
       target_user_id: payload.targetUserId ?? null,
       action: payload.action,
@@ -631,6 +819,8 @@ const listUsers = async (env: Env): Promise<ManagedUser[]> => {
 };
 
 const createUser = async (env: Env, input: ManagedUserCreateInput, actorUserId?: string) => {
+  assertPasswordStrength(input.password);
+  validateInviteRedirect(env, input.redirectTo);
   const path = input.password ? "/admin/users" : "/invite";
   const response = await fetch(getAuthUrl(env, path), {
     method: "POST",
@@ -672,7 +862,7 @@ const createUser = async (env: Env, input: ManagedUserCreateInput, actorUserId?:
     },
   });
 
-  return mapManagedUser(user, profile);
+  return managedUserSchema.parse(mapManagedUser(user, profile));
 };
 
 const updateUser = async (env: Env, id: string, input: ManagedUserUpdateInput, actorUserId?: string) => {
@@ -688,9 +878,10 @@ const updateUser = async (env: Env, id: string, input: ManagedUserUpdateInput, a
   const existingProfile = await getProfileById(env, id);
 
   if (isProtectedBootstrapEmail(existing.email ?? "") && (input.cmsRole || input.disabled !== undefined)) {
-    throw new Error("Protected local users cannot be demoted or suspended");
+    throw new HttpError("Protected local users cannot be demoted or suspended", 400);
   }
 
+  assertPasswordStrength(input.password);
   let user = existing;
   if (input.password) {
     const updateResponse = await fetch(getAuthUrl(env, `/admin/users/${id}`), {
@@ -737,7 +928,7 @@ const updateUser = async (env: Env, id: string, input: ManagedUserUpdateInput, a
     });
   }
 
-  return mapManagedUser(user, profile);
+  return managedUserSchema.parse(mapManagedUser(user, profile));
 };
 
 const getDiagnostics = async (env: Env): Promise<DiagnosticsResponse> => {
@@ -752,18 +943,18 @@ const getDiagnostics = async (env: Env): Promise<DiagnosticsResponse> => {
     fetch(`${getSupabaseUrl(env)}/storage/v1/bucket`, {
       headers: getAdminHeaders(env, { accept: "application/json" }),
     }),
-    fetch(`${getRestUrl(env, "/profiles")}?select=id&limit=1`, {
+    fetch(`${getRestUrl(env, "/profiles")}?app_env=eq.${encodeURIComponent(getAppEnv(env))}&select=id&limit=1`, {
       headers: getAdminHeaders(env),
     }),
   ]);
 
-  const schemaRows = await parseJson<SchemaStateRow[]>(schemaRowsResponse);
+  const schemaRows = schemaStateSchema.array().parse(await parseJson<SchemaStateRow[]>(schemaRowsResponse));
   await parseJson<SupabaseListUsersResponse>(authResponse);
   const buckets = await parseJson<Array<{ id: string; name: string }>>(bucketsResponse);
   const profilesRows = await parseJson<Array<{ id: string }>>(profilesResponse);
   const currentVersion = schemaRows[0]?.schema_version ?? null;
 
-  return {
+  return diagnosticsResponseSchema.parse({
     checkedAt,
     checks: {
       database: {
@@ -784,16 +975,16 @@ const getDiagnostics = async (env: Env): Promise<DiagnosticsResponse> => {
         actual: currentVersion,
       },
     },
-  };
+  });
 };
 
 const listAuditLogs = async (env: Env): Promise<AuditLogEntry[]> => {
   const response = await fetch(
-    `${getRestUrl(env, "/audit_logs")}?select=*&order=created_at.desc&limit=25`,
+    `${getRestUrl(env, "/audit_logs")}?app_env=eq.${encodeURIComponent(getAppEnv(env))}&select=*&order=created_at.desc&limit=25`,
     { headers: getAdminHeaders(env) }
   );
   const rows = await parseJson<AuditLogRow[]>(response);
-  return rows.map(mapAuditLog);
+  return auditLogListSchema.parse(rows.map(mapAuditLog));
 };
 
 const handleApiRequest = async (request: Request, env: Env, url: URL) => {
@@ -802,23 +993,23 @@ const handleApiRequest = async (request: Request, env: Env, url: URL) => {
 
   if (pathname === "/items" && request.method === "GET") {
     requirePermission(actor, "items", "read");
-    return apiResponse(request, env, await getItems(env, actor.id));
+    return apiResponse(request, env, itemListSchema.parse(await getItems(env, actor.id)));
   }
 
   if (pathname === "/items" && request.method === "POST") {
     requirePermission(actor, "items", "create");
-    const body = await readJson<ItemCreateInput>(request);
-    return apiResponse(request, env, await createItem(env, actor.id, body), 201);
+    const body = itemCreateInputSchema.parse(await readJson(request));
+    return apiResponse(request, env, itemSchema.parse(await createItem(env, actor.id, body)), 201);
   }
 
   const itemMatch = pathname.match(/^\/items\/([^/]+)$/);
   if (itemMatch && request.method === "PUT") {
     requirePermission(actor, "items", "update");
-    const item = await updateItem(env, actor.id, itemMatch[1], await readJson<ItemUpdateInput>(request));
+    const item = await updateItem(env, actor.id, itemMatch[1], itemUpdateInputSchema.parse(await readJson(request)));
     if (!item) {
       return apiError(request, env, 404, "Item not found");
     }
-    return apiResponse(request, env, item);
+    return apiResponse(request, env, itemSchema.parse(item));
   }
 
   if (itemMatch && request.method === "DELETE") {
@@ -832,23 +1023,23 @@ const handleApiRequest = async (request: Request, env: Env, url: URL) => {
 
   if (pathname === "/categories" && request.method === "GET") {
     requirePermission(actor, "categories", "read");
-    return apiResponse(request, env, await getCategories(env, actor.id));
+    return apiResponse(request, env, categoryListSchema.parse(await getCategories(env, actor.id)));
   }
 
   if (pathname === "/categories" && request.method === "POST") {
     requirePermission(actor, "categories", "create");
-    const body = await readJson<CategoryCreateInput>(request);
-    return apiResponse(request, env, await createCategory(env, actor.id, body), 201);
+    const body = categoryCreateInputSchema.parse(await readJson(request));
+    return apiResponse(request, env, categorySchema.parse(await createCategory(env, actor.id, body)), 201);
   }
 
   const categoryMatch = pathname.match(/^\/categories\/([^/]+)$/);
   if (categoryMatch && request.method === "PUT") {
     requirePermission(actor, "categories", "update");
-    const category = await updateCategory(env, actor.id, categoryMatch[1], await readJson<CategoryUpdateInput>(request));
+    const category = await updateCategory(env, actor.id, categoryMatch[1], categoryUpdateInputSchema.parse(await readJson(request)));
     if (!category) {
       return apiError(request, env, 404, "Category not found");
     }
-    return apiResponse(request, env, category);
+    return apiResponse(request, env, categorySchema.parse(category));
   }
 
   if (categoryMatch && request.method === "DELETE") {
@@ -862,65 +1053,127 @@ const handleApiRequest = async (request: Request, env: Env, url: URL) => {
 
   if (pathname === "/users" && request.method === "GET") {
     requirePermission(actor, "users", "read");
-    return apiResponse(request, env, await listUsers(env));
+    return apiResponse(request, env, managedUserListSchema.parse(await listUsers(env)));
   }
 
   if (pathname === "/users" && request.method === "POST") {
     requirePermission(actor, "users", "create");
-    const body = await readJson<ManagedUserCreateInput>(request);
-    return apiResponse(request, env, await createUser(env, body, actor.id), 201);
+    const body = managedUserCreateInputSchema.parse(await readJson(request));
+    return apiResponse(request, env, managedUserSchema.parse(await createUser(env, body, actor.id)), 201);
   }
 
   const userMatch = pathname.match(/^\/users\/([^/]+)$/);
   if (userMatch && request.method === "PUT") {
     requirePermission(actor, "users", "update");
-    const user = await updateUser(env, userMatch[1], await readJson<ManagedUserUpdateInput>(request), actor.id);
+    const user = await updateUser(env, userMatch[1], managedUserUpdateInputSchema.parse(await readJson(request)), actor.id);
     if (!user) {
       return apiError(request, env, 404, "User not found");
     }
-    return apiResponse(request, env, user);
+    return apiResponse(request, env, managedUserSchema.parse(user));
   }
 
   if (pathname === "/admin/diagnostics" && request.method === "GET") {
     requirePermission(actor, "users", "read");
-    return apiResponse(request, env, await getDiagnostics(env));
+    return apiResponse(request, env, diagnosticsResponseSchema.parse(await getDiagnostics(env)));
   }
 
   if (pathname === "/admin/audit-logs" && request.method === "GET") {
     requirePermission(actor, "users", "read");
-    return apiResponse(request, env, await listAuditLogs(env));
+    return apiResponse(request, env, auditLogListSchema.parse(await listAuditLogs(env)));
   }
 
   return apiError(request, env, 404, "Not found");
 };
 
-export default {
+const worker = {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    const tracedEnv: Env = {
+      ...env,
+      TRACE_ID: crypto.randomUUID(),
+    };
+
+    logEvent("info", "Request start", tracedEnv, {
+      method: request.method,
+      path: url.pathname,
+    });
 
     if (request.method === "OPTIONS") {
-      return withCorsHeaders(new Response(null, { status: 204 }), request, env);
+      const response = withCorsHeaders(new Response(null, { status: 204 }), request, tracedEnv);
+      logEvent("info", "Request complete", tracedEnv, {
+        method: request.method,
+        path: url.pathname,
+        status: response.status,
+      });
+      return response;
     }
 
     if (url.pathname === "/health") {
-      return apiResponse(request, env, {
+      const response = apiResponse(request, tracedEnv, {
         ok: true,
-        service: env.APP_NAME ?? "boilercrud-imsys",
+        service: env.APP_NAME ?? "your-app-web",
         environment: env.APP_ENV ?? "production",
         timestamp: new Date().toISOString(),
       });
+      logEvent("info", "Request complete", tracedEnv, {
+        method: request.method,
+        path: url.pathname,
+        status: response.status,
+      });
+      return response;
     }
 
     if (url.pathname.startsWith("/api/")) {
       try {
-        return await handleApiRequest(request, env, url);
+        enforceRateLimit(request, tracedEnv, url.pathname);
+        const response = await handleApiRequest(request, tracedEnv, url);
+        logEvent("info", "Request complete", tracedEnv, {
+          method: request.method,
+          path: url.pathname,
+          status: response.status,
+        });
+        return response;
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Unexpected error";
-        const status = message === "Missing bearer token" ? 401 : 400;
-        return apiError(request, env, status, message);
+        const status = error instanceof HttpError
+          ? error.status
+          : error instanceof ZodError
+            ? 400
+            : 500;
+        const message = error instanceof HttpError
+          ? error.message
+          : error instanceof ZodError
+            ? "Invalid request payload"
+            : "Internal server error";
+
+        if (status >= 500) {
+          captureException(error);
+        }
+        logEvent("error", "Request failed", tracedEnv, {
+          method: request.method,
+          path: url.pathname,
+          status,
+          error: message,
+        });
+        return apiError(request, tracedEnv, status, message);
       }
     }
 
-    return env.ASSETS.fetch(request);
+    const response = await tracedEnv.ASSETS.fetch(request);
+    logEvent("info", "Request complete", tracedEnv, {
+      method: request.method,
+      path: url.pathname,
+      status: response.status,
+    });
+    return response;
   },
 };
+
+export default withSentry(
+  (env: Env) => (env.SENTRY_DSN?.trim() ? {
+    dsn: env.SENTRY_DSN.trim(),
+    environment: env.APP_ENV ?? "production",
+    enabled: true,
+    tracesSampleRate: 0
+  } : undefined),
+  worker
+);

@@ -50,7 +50,7 @@ export const verifyAccessToken = async (authorizationHeader?: string): Promise<V
   const token = getBearerToken(authorizationHeader);
 
   if (!token) {
-    throw new AuthError("Missing bearer token");
+    throw new AuthError("Unauthorized");
   }
 
   try {
@@ -60,7 +60,7 @@ export const verifyAccessToken = async (authorizationHeader?: string): Promise<V
     });
 
     if (typeof payload.sub !== "string" || !payload.sub) {
-      throw new AuthError("Invalid auth token subject");
+      throw new AuthError("Unauthorized");
     }
 
     return {
@@ -74,8 +74,7 @@ export const verifyAccessToken = async (authorizationHeader?: string): Promise<V
       throw error;
     }
 
-    const message = error instanceof Error ? error.message : "Invalid or expired auth token";
-    throw new AuthError(message);
+    throw new AuthError("Unauthorized");
   }
 };
 

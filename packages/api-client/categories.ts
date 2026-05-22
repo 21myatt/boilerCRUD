@@ -1,8 +1,23 @@
-import type { Category, CategoryCreateInput, CategoryUpdateInput } from "@imsys/types";
+import {
+  apiEnvelopeSchema,
+  categoryCreateInputSchema,
+  categoryListSchema,
+  categorySchema,
+  categoryUpdateInputSchema,
+  type Category,
+  type CategoryCreateInput,
+  type CategoryUpdateInput
+} from "@imsys/types";
 import { requestEnvelope, type RequestOptions } from "./request";
 
 export const getCategories = async (baseUrl: string, options?: RequestOptions): Promise<Category[]> => {
-  const body = await requestEnvelope<Category[]>(baseUrl, "/categories", undefined, options);
+  const body = await requestEnvelope<Category[]>(
+    baseUrl,
+    "/categories",
+    undefined,
+    options,
+    apiEnvelopeSchema(categoryListSchema)
+  );
   return body.data ?? [];
 };
 
@@ -13,8 +28,8 @@ export const createCategory = async (
 ): Promise<Category> => {
   const body = await requestEnvelope<Category>(baseUrl, "/categories", {
     method: "POST",
-    body: JSON.stringify(input)
-  }, options);
+    body: JSON.stringify(categoryCreateInputSchema.parse(input))
+  }, options, apiEnvelopeSchema(categorySchema));
 
   return body.data as Category;
 };
@@ -27,8 +42,8 @@ export const updateCategory = async (
 ): Promise<Category> => {
   const body = await requestEnvelope<Category>(baseUrl, `/categories/${id}`, {
     method: "PUT",
-    body: JSON.stringify(input)
-  }, options);
+    body: JSON.stringify(categoryUpdateInputSchema.parse(input))
+  }, options, apiEnvelopeSchema(categorySchema));
 
   return body.data as Category;
 };

@@ -1,10 +1,11 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "@imsys/db";
 import { profiles } from "@imsys/db/schema";
 import type { ManagedUserRole, Profile } from "@imsys/types";
 import type { VerifiedAuthToken } from "@imsys/auth/middleware";
 import { getBootstrapCmsRole, normalizeCmsRole } from "@imsys/auth";
 import { logger } from "@imsys/utils";
+import { getAppEnv } from "../lib/app-env";
 import { getSupabaseAdminHeaders, getSupabaseAdminUrl } from "../lib/supabase-admin";
 
 type SupabaseAuthUserResponse = {
@@ -25,6 +26,7 @@ const mapProfile = (row: typeof profiles.$inferSelect): Profile => ({
 
 type ProfileStoreRow = {
   id: string;
+  appEnv: string;
   email: string;
   role: string;
   disabled: boolean;
@@ -33,10 +35,11 @@ type ProfileStoreRow = {
 };
 
 type ProfileStore = {
-  getById: (id: string) => Promise<ProfileStoreRow | null>;
-  list: () => Promise<ProfileStoreRow[]>;
+  getById: (id: string, appEnv: string) => Promise<ProfileStoreRow | null>;
+  list: (appEnv: string) => Promise<ProfileStoreRow[]>;
   upsert: (row: {
     id: string;
+    appEnv: string;
     email: string;
     role: string;
     disabled: boolean;
@@ -75,21 +78,22 @@ const getAuthUserSnapshot = async (id: string) => {
 };
 
 const defaultProfileStore: ProfileStore = {
-  getById: async (id) => {
+  getById: async (id, appEnv) => {
     const db = getDb();
     const rows = await db
       .select()
       .from(profiles)
-      .where(eq(profiles.id, id))
+      .where(and(eq(profiles.id, id), eq(profiles.appEnv, appEnv)))
       .limit(1);
 
     return rows[0] ?? null;
   },
-  list: async () => {
+  list: async (appEnv) => {
     const db = getDb();
     return db
       .select()
       .from(profiles)
+      .where(eq(profiles.appEnv, appEnv))
       .orderBy(desc(profiles.createdAt));
   },
   upsert: async (row) => {
@@ -98,7 +102,7 @@ const defaultProfileStore: ProfileStore = {
       .insert(profiles)
       .values(row)
       .onConflictDoUpdate({
-        target: profiles.id,
+        target: [profiles.id, profiles.appEnv],
         set: {
           email: row.email,
           role: row.role,
@@ -116,13 +120,13 @@ export const setProfileStoreForTests = (store: ProfileStore | null) => {
 };
 
 export const getProfileById = async (id: string): Promise<Profile | null> => {
-  const row = await profileStore.getById(id);
+  const row = await profileStore.getById(id, getAppEnv());
 
   return row ? mapProfile(row) : null;
 };
 
 export const listProfiles = async (): Promise<Profile[]> => {
-  const rows = await profileStore.list();
+  const rows = await profileStore.list(getAppEnv());
   return rows.map(mapProfile);
 };
 
@@ -138,9 +142,11 @@ export const upsertProfile = async ({
   disabled?: boolean;
 }): Promise<Profile> => {
   const existing = await getProfileById(id);
+  const appEnv = getAppEnv();
   const bootstrapRole = getBootstrapCmsRole(email);
   const row = {
     id,
+    appEnv,
     email,
     role: bootstrapRole ?? role ?? existing?.role ?? "viewer",
     disabled: disabled ?? existing?.disabled ?? false,

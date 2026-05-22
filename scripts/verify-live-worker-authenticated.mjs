@@ -35,19 +35,27 @@ const env = {
 
 const required = [
   "SUPABASE_URL",
-  "SUPABASE_SECRET_KEY",
   "VITE_SUPABASE_ANON_KEY",
 ];
 
+const serviceKey = env.SUPABASE_SECRET_KEY?.trim() || env.SUPABASE_SERVICE_ROLE_KEY?.trim();
 const missing = required.filter((key) => !env[key]?.trim());
+if (!serviceKey) {
+  missing.push("SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY");
+}
+
 if (missing.length > 0) {
   console.error(`missing env: ${missing.join(", ")}`);
   process.exit(1);
 }
 
-const workerBaseUrl = process.argv[2]?.trim() || "https://boilercrud-imsys.amh-myat.workers.dev";
+const workerBaseUrl = process.argv[2]?.trim();
+if (!workerBaseUrl) {
+  console.error("usage: node scripts/verify-live-worker-authenticated.mjs https://your-worker.example.com");
+  process.exit(1);
+}
+
 const supabaseUrl = env.SUPABASE_URL.replace(/\/$/, "");
-const serviceKey = env.SUPABASE_SECRET_KEY;
 const anonKey = env.VITE_SUPABASE_ANON_KEY;
 
 const randomSuffix = crypto.randomBytes(6).toString("hex");
@@ -58,6 +66,7 @@ const adminHeaders = {
   apikey: serviceKey,
   authorization: `Bearer ${serviceKey}`,
   "content-type": "application/json",
+  "x-app-env": "production",
 };
 
 const anonHeaders = {
@@ -122,16 +131,19 @@ try {
   }
 
   await request(
-    `${supabaseUrl}/rest/v1/profiles?id=eq.${encodeURIComponent(createdUserId)}`,
+    `${supabaseUrl}/rest/v1/profiles?on_conflict=id,app_env`,
     {
-      method: "PATCH",
+      method: "POST",
       headers: {
         ...adminHeaders,
         Prefer: "return=representation",
       },
       body: JSON.stringify({
+        app_env: "production",
         role: "admin",
         disabled: false,
+        email,
+        id: createdUserId,
       }),
     },
     "promote temp user profile"

@@ -1,4 +1,4 @@
-import type { AuditLogEntry } from "@imsys/types";
+import { apiEnvelopeSchema, auditLogListSchema, type AuditLogEntry } from "@imsys/types";
 import { requestEnvelope, type RequestOptions } from "./request";
 
 export const getAuditLogs = async (
@@ -9,7 +9,8 @@ export const getAuditLogs = async (
     baseUrl,
     "/admin/audit-logs",
     undefined,
-    options
+    options,
+    apiEnvelopeSchema(auditLogListSchema)
   );
   return body.data ?? [];
 };

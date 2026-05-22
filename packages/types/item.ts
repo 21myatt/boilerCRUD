@@ -7,6 +7,9 @@ export type Item = Timestamped & {
   updatedAt?: string;
 };
 
-export type ItemCreateInput = Pick<Item, "name" | "categoryId">;
+export type ItemCreateInput = {
+  name: string;
+  categoryId?: ID | null;
+};
 
 export type ItemUpdateInput = Partial<ItemCreateInput>;

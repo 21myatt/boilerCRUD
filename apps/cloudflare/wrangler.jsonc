@@ -1,24 +1,24 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "imsys-edge",
+  "name": "your-app-edge",
   "main": "src/index.ts",
   "compatibility_date": "2026-05-09",
   "observability": {
     "enabled": true
   },
   "vars": {
-    "APP_NAME": "imsys",
+    "APP_NAME": "your-app-edge",
     "APP_ENV": "development"
   },
   "env": {
     "staging": {
-      "name": "imsys-edge-staging",
+      "name": "your-app-edge-staging",
       "vars": {
         "APP_ENV": "staging"
       }
     },
     "production": {
-      "name": "imsys-edge-production",
+      "name": "your-app-edge-production",
       "vars": {
         "APP_ENV": "production"
       }

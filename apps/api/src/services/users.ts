@@ -5,6 +5,7 @@ import type {
   ManagedUserUpdateInput
 } from "@imsys/types";
 import { getBootstrapCmsRole, isProtectedBootstrapEmail } from "@imsys/auth";
+import { AppError } from "@imsys/utils";
 import { getSupabaseAdminHeaders, getSupabaseAdminUrl } from "../lib/supabase-admin";
 import { writeAuditLog } from "./audit-logs";
 import { listProfiles, upsertProfile } from "./profiles";
@@ -28,6 +29,51 @@ type SupabaseSingleUserResponse = {
 };
 
 const isProductionInviteMode = () => process.env.NODE_ENV === "production";
+
+const assertPasswordStrength = (password?: string) => {
+  if (!password) {
+    return;
+  }
+
+  if (
+    password.length < 12
+    || !/[A-Z]/.test(password)
+    || !/[a-z]/.test(password)
+    || !/\d/.test(password)
+  ) {
+    throw new AppError(
+      "Password must be at least 12 characters and include uppercase, lowercase, and number",
+      400
+    );
+  }
+};
+
+const getAllowedInviteOrigins = () => {
+  const inviteRedirect = process.env.INVITE_REDIRECT_TO;
+  const configuredOrigins = (process.env.INVITE_REDIRECT_ORIGINS ?? process.env.CORS_ORIGINS ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  if (inviteRedirect) {
+    configuredOrigins.push(new URL(inviteRedirect).origin);
+  }
+
+  return new Set(configuredOrigins);
+};
+
+const validateInviteRedirect = (redirectTo?: string) => {
+  if (!redirectTo) {
+    return;
+  }
+
+  const redirectUrl = new URL(redirectTo);
+  const allowedOrigins = getAllowedInviteOrigins();
+
+  if (allowedOrigins.size === 0 || !allowedOrigins.has(redirectUrl.origin)) {
+    throw new AppError("Invalid invite redirect URL", 400);
+  }
+};
 
 const mapManagedUser = (
   user: SupabaseAdminUser,
@@ -97,8 +143,11 @@ export const createUser = async (
   actorUserId?: string
 ): Promise<ManagedUser> => {
   if (!input.password && !isProductionInviteMode()) {
-    throw new Error("Password is required outside production invite mode");
+    throw new AppError("Password is required outside production invite mode", 400);
   }
+
+  assertPasswordStrength(input.password);
+  validateInviteRedirect(input.redirectTo);
 
   const response = await fetch(
     getSupabaseAdminUrl(isProductionInviteMode() ? "/invite" : "/admin/users"),
@@ -169,9 +218,10 @@ export const updateUser = async (
   const existingProfile = profiles.find((profile) => profile.id === existing.id) ?? null;
 
   if (isProtectedBootstrapEmail(existing.email ?? "") && (input.cmsRole || input.disabled)) {
-    throw new Error("Protected local users cannot be demoted or suspended");
+    throw new AppError("Protected local users cannot be demoted or suspended", 400);
   }
 
+  assertPasswordStrength(input.password);
   let user = existing;
 
   if (input.password) {

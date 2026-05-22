@@ -6,6 +6,7 @@ coverage
 .expo
 .next
 .DS_Store
+docs/
 .env
 .env.local
 **/.env
@@ -15,6 +16,13 @@ apps/api/.data/
 .local-docs/
 **/.*/
 !.gitignore
+!.github/
+!.github/workflows/
+!.github/workflows/*.yml
 !.env.example
 !apps/mobile/.env.example
 !apps/cloudflare/.dev.vars.example
+apps/web/.dev.vars
+apps/web/wrangler.ci.jsonc
+playwright-report/
+test-results/

@@ -15,6 +15,6 @@ test("marks schema version mismatch as unhealthy", () => {
 
   assert.equal(payload.checks.database.ok, true);
   assert.equal(payload.checks.schemaVersion.ok, false);
-  assert.equal(payload.checks.schemaVersion.expected, APP_SCHEMA_VERSION);
+    assert.equal(payload.checks.schemaVersion.expected, APP_SCHEMA_VERSION);
   assert.equal(payload.checks.schemaVersion.actual, "wrong-version");
 });

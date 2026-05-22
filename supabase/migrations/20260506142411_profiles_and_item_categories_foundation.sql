@@ -1,0 +1,3 @@
+-- Legacy remote migration placeholder.
+-- Remote Supabase project already recorded version 20260506142411.
+-- Current repo baseline schema captures resulting structure.

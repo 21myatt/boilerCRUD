@@ -5,6 +5,7 @@ import {
   CMS_ASSET_BUCKET,
   inferAssetKind
 } from "@imsys/client";
+import { normalizeAppEnv } from "../../lib/app-env";
 
 type AssetRow = {
   id: string;
@@ -51,6 +52,8 @@ const mapAssetRow = (row: AssetRow): Asset => ({
   updatedAt: row.updated_at
 });
 
+const appEnv = normalizeAppEnv(import.meta.env.VITE_APP_ENV ?? import.meta.env.MODE);
+
 const toError = (error: unknown, fallback: string) => {
   if (error instanceof Error && error.message) {
     return error;
@@ -92,6 +95,7 @@ const insertAssetRecord = async (
   const { data, error } = await client
     .from("assets")
     .insert({
+      app_env: appEnv,
       bucket_id: input.bucketId,
       path: input.path,
       file_name: input.fileName,
@@ -121,7 +125,7 @@ export const uploadAsset = async (
   }
 ): Promise<Asset> => {
   const activeClient = requireClient(client);
-  const objectPath = buildAssetObjectPath(userId, file.name);
+  const objectPath = buildAssetObjectPath(appEnv, userId, file.name);
   const mimeType = file.type || "application/octet-stream";
 
   const { error: uploadError } = await activeClient.storage.from(CMS_ASSET_BUCKET).upload(objectPath, file, {

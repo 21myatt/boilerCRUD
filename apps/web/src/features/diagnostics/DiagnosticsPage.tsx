@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { createDiagnosticsClient } from "@imsys/api-client";
+import type { DiagnosticsCheck } from "@imsys/types";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../../app/auth/AuthProvider";
 import { ResourceCollectionCard } from "../../design-system/patterns/resources/ResourceCollectionCard";
@@ -21,7 +22,7 @@ export const DiagnosticsPage = () => {
   });
 
   const checks = diagnosticsQuery.data?.checks
-    ? Object.entries(diagnosticsQuery.data.checks)
+    ? Object.entries(diagnosticsQuery.data.checks) as [string, DiagnosticsCheck][]
     : [];
 
   return (

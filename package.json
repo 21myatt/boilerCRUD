@@ -9,8 +9,16 @@
     "lint": "turbo run lint",
     "lint:schema": "node scripts/lint-schema-version.mjs",
     "bootstrap:supabase": "node scripts/bootstrap-supabase.mjs",
+    "bootstrap:supabase:local": "node scripts/bootstrap-supabase-local.mjs",
+    "db:cleanup:app-env": "node scripts/cleanup-app-env-data.mjs",
+    "supabase:auth:harden": "node scripts/configure-supabase-auth-security.mjs",
+    "generate:resource": "node scripts/generate-resource.mjs",
+    "boilerplate:contract": "node scripts/print-boilerplate-contract.mjs",
+    "boilerplate:api-contract": "node scripts/print-api-contract.mjs",
+    "boilerplate:github": "node scripts/print-github-bootstrap-commands.mjs",
     "verify:boilerplate": "node scripts/verify-cloudflare-boilerplate.mjs",
     "web:edge:release:check": "node scripts/validate-web-build-env.mjs",
+    "web:edge:deploy:check": "node scripts/validate-web-deploy-env.mjs",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
     "db:migrate": "turbo run db:migrate",
@@ -28,7 +36,11 @@
     "cf:pages:deploy:worker": "pnpm --dir apps/web exec wrangler deploy --config wrangler.jsonc"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "tsx": "^4.16.2",
     "turbo": "^2.5.8",
-    "typescript": "^5.5.4"
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.9",
+    "zod": "^3.23.8"
   }
 }

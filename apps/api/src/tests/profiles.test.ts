@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { normalizeAppEnv } from "@imsys/utils";
 import { ensureProfileForIdentity, setProfileStoreForTests } from "../services/profiles";
 
 const SUPABASE_URL = "https://example.supabase.co";
@@ -16,30 +17,36 @@ const jsonResponse = (body: unknown, init?: ResponseInit) =>
 
 const createProfileStore = (seed: Array<{
   id: string;
+  appEnv?: string;
   email: string;
   role: string;
   disabled: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }> = []) => {
-  const rows = new Map(seed.map((row) => [row.id, {
-    ...row,
-    createdAt: row.createdAt ?? new Date("2026-05-08T00:00:00.000Z"),
-    updatedAt: row.updatedAt ?? new Date("2026-05-08T00:00:00.000Z")
-  }]));
+  const rows = new Map(seed.map((row) => {
+    const appEnv = row.appEnv ?? normalizeAppEnv(process.env.NODE_ENV);
+    return [`${row.id}:${appEnv}`, {
+      ...row,
+      appEnv,
+      createdAt: row.createdAt ?? new Date("2026-05-08T00:00:00.000Z"),
+      updatedAt: row.updatedAt ?? new Date("2026-05-08T00:00:00.000Z")
+    }];
+  }));
 
   return {
-    getById: async (id: string) => rows.get(id) ?? null,
-    list: async () => [...rows.values()],
+    getById: async (id: string, appEnv: string) => rows.get(`${id}:${appEnv}`) ?? null,
+    list: async (appEnv: string) => [...rows.values()].filter((row) => row.appEnv === appEnv),
     upsert: async (row: {
       id: string;
+      appEnv: string;
       email: string;
       role: string;
       disabled: boolean;
       createdAt: Date;
       updatedAt: Date;
     }) => {
-      rows.set(row.id, row);
+      rows.set(`${row.id}:${row.appEnv}`, row);
     }
   };
 };

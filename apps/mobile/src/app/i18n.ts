@@ -10,7 +10,7 @@ void i18n.use(initReactI18next).init({
   resources: {
     en: {
       translation: {
-        appName: "IMSys",
+        appName: "Starter Workspace",
         signIn: "Sign in",
         signOut: "Sign out",
         loading: "Loading workspace...",
@@ -58,7 +58,7 @@ void i18n.use(initReactI18next).init({
     },
     th: {
       translation: {
-        appName: "IMSys",
+        appName: "Starter Workspace",
         signIn: "เข้าสู่ระบบ",
         signOut: "ออกจากระบบ",
         loading: "กำลังโหลดเวิร์กสเปซ...",
