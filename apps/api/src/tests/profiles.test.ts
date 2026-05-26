@@ -97,7 +97,7 @@ test("repairs missing profiles from authenticated identity using safe defaults",
   }
 });
 
-test("normalizes bootstrap profiles only in development-style environments", async () => {
+test("preserves existing profile roles for authenticated identities", async () => {
   const originalFetch = globalThis.fetch;
   const originalNodeEnv = process.env.NODE_ENV;
   const originalSupabaseUrl = process.env.SUPABASE_URL;
@@ -127,7 +127,7 @@ test("normalizes bootstrap profiles only in development-style environments", asy
       appMetadata: null
     });
 
-    assert.equal(profile.role, "admin");
+    assert.equal(profile.role, "viewer");
     assert.equal(profile.email, "admin@local.dev");
   } finally {
     setProfileStoreForTests(null);

@@ -93,11 +93,7 @@ declare
   bootstrap_role text;
   is_disabled boolean;
 begin
-  bootstrap_role := case lower(coalesce(new.email, ''))
-    when 'admin@local.dev' then 'admin'
-    when 'viewer@local.dev' then 'viewer'
-    else 'viewer'
-  end;
+  bootstrap_role := 'viewer';
 
   is_disabled := coalesce(new.banned_until is not null and new.banned_until > timezone('utc', now()), false);
 
@@ -169,11 +165,7 @@ insert into public.profiles (id, email, role, disabled, created_at, updated_at)
 select
   users.id,
   coalesce(users.email, ''),
-  case lower(coalesce(users.email, ''))
-    when 'admin@local.dev' then 'admin'
-    when 'viewer@local.dev' then 'viewer'
-    else 'viewer'
-  end,
+  'viewer',
   coalesce(users.banned_until is not null and users.banned_until > timezone('utc', now()), false),
   coalesce(users.created_at, timezone('utc', now())),
   timezone('utc', now())

@@ -1,4 +1,4 @@
-import { canAccess, getPermissionMapForActor, type CmsRole, normalizeCmsRole, ADMIN_EMAIL, VIEWER_EMAIL } from "@imsys/auth";
+import { canAccess, getPermissionMapForActor, type CmsRole, normalizeCmsRole } from "@imsys/auth";
 import { captureException, withSentry } from "@sentry/cloudflare";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { ZodError } from "zod";
@@ -390,10 +390,7 @@ const verifyAccessToken = async (authorizationHeader: string | null, env: Env): 
   };
 };
 
-const isProtectedBootstrapEmail = (email?: string | null) => {
-  const normalized = email?.trim().toLowerCase();
-  return normalized === ADMIN_EMAIL || normalized === VIEWER_EMAIL;
-};
+const isProtectedBootstrapEmail = (_email?: string | null) => false;
 
 const mapProfile = (row: ProfileRow): Profile => ({
   id: row.id,
@@ -876,10 +873,6 @@ const updateUser = async (env: Env, id: string, input: ManagedUserUpdateInput, a
   const existingPayload = await parseJson<SupabaseAuthUserResponse>(existingResponse);
   const existing = existingPayload.user;
   const existingProfile = await getProfileById(env, id);
-
-  if (isProtectedBootstrapEmail(existing.email ?? "") && (input.cmsRole || input.disabled !== undefined)) {
-    throw new HttpError("Protected local users cannot be demoted or suspended", 400);
-  }
 
   assertPasswordStrength(input.password);
   let user = existing;

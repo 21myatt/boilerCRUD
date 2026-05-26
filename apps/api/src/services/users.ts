@@ -4,7 +4,6 @@ import type {
   ManagedUserRole,
   ManagedUserUpdateInput
 } from "@imsys/types";
-import { getBootstrapCmsRole, isProtectedBootstrapEmail } from "@imsys/auth";
 import { AppError } from "@imsys/utils";
 import { getSupabaseAdminHeaders, getSupabaseAdminUrl } from "../lib/supabase-admin";
 import { writeAuditLog } from "./audit-logs";
@@ -84,14 +83,12 @@ const mapManagedUser = (
 ): ManagedUser => ({
   id: user.id,
   email: user.email ?? "",
-  cmsRole: profile?.role
-    ?? getBootstrapCmsRole(user.email ?? "")
-    ?? "viewer",
+  cmsRole: profile?.role ?? "viewer",
   disabled: profile?.disabled ?? Boolean(user.banned_until && user.banned_until !== "none"),
   lastSignInAt: user.last_sign_in_at ?? null,
   createdAt: user.created_at,
   updatedAt: user.updated_at ?? user.created_at,
-  protected: isProtectedBootstrapEmail(user.email ?? "")
+  protected: false
 });
 
 const unwrapUser = (
@@ -216,10 +213,6 @@ export const updateUser = async (
   );
   const profiles = await listProfiles();
   const existingProfile = profiles.find((profile) => profile.id === existing.id) ?? null;
-
-  if (isProtectedBootstrapEmail(existing.email ?? "") && (input.cmsRole || input.disabled)) {
-    throw new AppError("Protected local users cannot be demoted or suspended", 400);
-  }
 
   assertPasswordStrength(input.password);
   let user = existing;

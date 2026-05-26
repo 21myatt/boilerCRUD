@@ -3,7 +3,7 @@ import { getDb } from "@imsys/db";
 import { profiles } from "@imsys/db/schema";
 import type { ManagedUserRole, Profile } from "@imsys/types";
 import type { VerifiedAuthToken } from "@imsys/auth/middleware";
-import { getBootstrapCmsRole, normalizeCmsRole } from "@imsys/auth";
+import { normalizeCmsRole } from "@imsys/auth";
 import { logger } from "@imsys/utils";
 import { getAppEnv } from "../lib/app-env";
 import { getSupabaseAdminHeaders, getSupabaseAdminUrl } from "../lib/supabase-admin";
@@ -143,12 +143,11 @@ export const upsertProfile = async ({
 }): Promise<Profile> => {
   const existing = await getProfileById(id);
   const appEnv = getAppEnv();
-  const bootstrapRole = getBootstrapCmsRole(email);
   const row = {
     id,
     appEnv,
     email,
-    role: bootstrapRole ?? role ?? existing?.role ?? "viewer",
+    role: normalizeCmsRole(role) ?? normalizeCmsRole(existing?.role) ?? "viewer",
     disabled: disabled ?? existing?.disabled ?? false,
     createdAt: existing ? new Date(existing.createdAt) : new Date(),
     updatedAt: new Date()
@@ -169,26 +168,8 @@ export const ensureProfileForIdentity = async (
   identity: VerifiedAuthToken
 ): Promise<Profile> => {
   const existing = await getProfileById(identity.id);
-  const bootstrapRole = getBootstrapCmsRole(identity.email);
 
   if (existing) {
-    if (bootstrapRole && existing.role !== bootstrapRole) {
-      const updatedProfile = await upsertProfile({
-        id: identity.id,
-        email: existing.email,
-        role: bootstrapRole,
-        disabled: existing.disabled
-      });
-
-      logger.warn("Normalized bootstrap profile role for authenticated user", {
-        userId: identity.id,
-        email: updatedProfile.email,
-        role: updatedProfile.role
-      });
-
-      return updatedProfile;
-    }
-
     return existing;
   }
 
@@ -197,7 +178,7 @@ export const ensureProfileForIdentity = async (
   const profile = await upsertProfile({
     id: identity.id,
     email,
-    role: getBootstrapCmsRole(email) ?? "viewer",
+    role: "viewer",
     disabled: isBanned(authUser?.banned_until)
   });
 

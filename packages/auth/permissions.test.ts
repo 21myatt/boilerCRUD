@@ -7,8 +7,6 @@ import {
   getPermissionsForRole
 } from "./permissions.ts";
 import {
-  ADMIN_EMAIL,
-  VIEWER_EMAIL,
   getBootstrapCmsRole,
   getCmsRoleForUser,
   getCmsRoleFromAppMetadata,
@@ -30,29 +28,14 @@ test("extracts CMS role from app metadata", () => {
   assert.equal(getCmsRoleFromAppMetadata({}), "viewer");
 });
 
-test("resolves fixed local users by email before app metadata", () => {
+test("does not apply bootstrap email overrides", () => {
+  assert.equal(getBootstrapCmsRole("admin@local.dev", "enabled"), null);
+  assert.equal(isProtectedBootstrapEmail("viewer@local.dev", "enabled"), false);
   assert.equal(getCmsRoleForUser({
-    email: ADMIN_EMAIL,
-    profileRole: "viewer",
-    appMetadata: { cmsRole: "viewer" },
-    bootstrapOverrideMode: "enabled"
-  }), "admin");
-  assert.equal(getCmsRoleForUser({
-    email: VIEWER_EMAIL,
-    profileRole: "admin",
-    appMetadata: { cmsRole: "admin" },
-    bootstrapOverrideMode: "enabled"
-  }), "viewer");
-});
-
-test("disables bootstrap email overrides outside development-style environments", () => {
-  assert.equal(getBootstrapCmsRole(ADMIN_EMAIL, "disabled"), null);
-  assert.equal(isProtectedBootstrapEmail(VIEWER_EMAIL, "disabled"), false);
-  assert.equal(getCmsRoleForUser({
-    email: ADMIN_EMAIL,
+    email: "admin@local.dev",
     profileRole: "viewer",
     appMetadata: { cmsRole: "admin" },
-    bootstrapOverrideMode: "disabled"
+    bootstrapOverrideMode: "enabled"
   }), "viewer");
 });
 
@@ -72,53 +55,47 @@ test("does not trust app metadata roles for non-bootstrap users without profiles
 });
 
 test("builds permission maps from session identity", () => {
-  const originalNodeEnv = process.env.NODE_ENV;
-  process.env.NODE_ENV = "development";
-  try {
-    const adminPermissions = getPermissionMapFromSession({
-      user: {
-        email: ADMIN_EMAIL,
-        app_metadata: {
-          cmsRole: "viewer"
-        }
+  const adminPermissions = getPermissionMapFromSession({
+    user: {
+      email: "admin@example.com",
+      app_metadata: {
+        cmsRole: "viewer"
       }
-    } as never, {
-      role: "viewer",
-      disabled: false
-    });
+    }
+  } as never, {
+    role: "admin",
+    disabled: false
+  });
 
-    assert.equal(canAccess(adminPermissions, "items", "delete"), true);
-    assert.equal(canAccess(adminPermissions, "categories", "create"), true);
-    assert.equal(canAccess(adminPermissions, "assets", "create"), true);
-    assert.equal(canAccess(adminPermissions, "users", "update"), true);
+  assert.equal(canAccess(adminPermissions, "items", "delete"), true);
+  assert.equal(canAccess(adminPermissions, "categories", "create"), true);
+  assert.equal(canAccess(adminPermissions, "assets", "create"), true);
+  assert.equal(canAccess(adminPermissions, "users", "update"), true);
 
-    const viewerPermissions = getPermissionMapFromSession({
-      user: {
-        email: VIEWER_EMAIL,
-        app_metadata: {}
-      }
-    } as never, {
-      role: "admin",
-      disabled: false
-    });
+  const viewerPermissions = getPermissionMapFromSession({
+    user: {
+      email: "viewer@example.com",
+      app_metadata: {}
+    }
+  } as never, {
+    role: "viewer",
+    disabled: false
+  });
 
-    assert.equal(canAccess(viewerPermissions, "items", "delete"), true);
-    assert.equal(canAccess(viewerPermissions, "categories", "create"), false);
-    assert.equal(canAccess(viewerPermissions, "assets", "create"), false);
-    assert.equal(canAccess(viewerPermissions, "users", "read"), false);
+  assert.equal(canAccess(viewerPermissions, "items", "delete"), true);
+  assert.equal(canAccess(viewerPermissions, "categories", "create"), false);
+  assert.equal(canAccess(viewerPermissions, "assets", "create"), false);
+  assert.equal(canAccess(viewerPermissions, "users", "read"), false);
 
-    const disabledPermissions = getPermissionMapForActor({
-      role: "admin",
-      disabled: true
-    });
+  const disabledPermissions = getPermissionMapForActor({
+    role: "admin",
+    disabled: true
+  });
 
-    assert.equal(canAccess(disabledPermissions, "items", "read"), false);
+  assert.equal(canAccess(disabledPermissions, "items", "read"), false);
 
-    const fallbackPermissions = getPermissionsForRole("viewer");
-    assert.equal(canAccess(fallbackPermissions, "items", "update"), true);
-    assert.equal(canAccess(fallbackPermissions, "categories", "update"), false);
-    assert.equal(canAccess(fallbackPermissions, "assets", "read"), true);
-  } finally {
-    process.env.NODE_ENV = originalNodeEnv;
-  }
+  const fallbackPermissions = getPermissionsForRole("viewer");
+  assert.equal(canAccess(fallbackPermissions, "items", "update"), true);
+  assert.equal(canAccess(fallbackPermissions, "categories", "update"), false);
+  assert.equal(canAccess(fallbackPermissions, "assets", "read"), true);
 });

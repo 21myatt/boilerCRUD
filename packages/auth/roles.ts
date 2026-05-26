@@ -1,6 +1,4 @@
 export const roles = ["admin", "editor", "reviewer", "viewer"] as const;
-export const ADMIN_EMAIL = "admin@local.dev";
-export const VIEWER_EMAIL = "viewer@local.dev";
 
 export type CmsRole = (typeof roles)[number];
 export type BootstrapOverrideMode = "auto" | "enabled" | "disabled";
@@ -24,56 +22,19 @@ export const normalizeCmsRole = (value: unknown): CmsRole | null => {
   return legacyRoleMap[normalizedValue as keyof typeof legacyRoleMap] ?? null;
 };
 
-const getNodeEnv = () =>
-  typeof process !== "undefined" && process?.env
-    ? process.env.NODE_ENV
-    : undefined;
-
-const shouldAllowBootstrapOverride = (mode: BootstrapOverrideMode = "auto") => {
-  if (mode === "enabled") {
-    return true;
-  }
-
-  if (mode === "disabled") {
-    return false;
-  }
-
-  const nodeEnv = getNodeEnv();
-  return nodeEnv === "development" || nodeEnv === "test";
-};
-
-const normalizeEmail = (value?: string | null) => value?.trim().toLowerCase() ?? "";
-
 export const isProtectedBootstrapEmail = (
-  email?: string | null,
+  _email?: string | null,
   mode: BootstrapOverrideMode = "auto"
 ) => {
-  if (!shouldAllowBootstrapOverride(mode)) {
-    return false;
-  }
-
-  const normalizedEmail = normalizeEmail(email);
-  return normalizedEmail === ADMIN_EMAIL || normalizedEmail === VIEWER_EMAIL;
+  void mode;
+  return false;
 };
 
 export const getBootstrapCmsRole = (
-  email?: string | null,
+  _email?: string | null,
   mode: BootstrapOverrideMode = "auto"
 ): CmsRole | null => {
-  if (!shouldAllowBootstrapOverride(mode)) {
-    return null;
-  }
-
-  const normalizedEmail = normalizeEmail(email);
-
-  if (normalizedEmail === ADMIN_EMAIL) {
-    return "admin";
-  }
-
-  if (normalizedEmail === VIEWER_EMAIL) {
-    return "viewer";
-  }
-
+  void mode;
   return null;
 };
 

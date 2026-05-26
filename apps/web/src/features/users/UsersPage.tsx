@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ADMIN_EMAIL, canAccess } from "@imsys/auth";
+import { canAccess } from "@imsys/auth";
 import type { ManagedUserRole } from "@imsys/types";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -206,11 +206,6 @@ export const UsersPage = () => {
                       <p className="m-0 text-[0.88rem] text-[var(--muted)]">Created {formatDateTime(user.createdAt)}</p>
                       <p className="m-0 text-[0.88rem] text-[var(--muted)]">Last sign-in {formatDateTime(user.lastSignInAt)}</p>
                     </div>
-                    {user.protected ? (
-                      <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-[#1f1915] px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#fff7ef]">
-                        {user.email.toLowerCase() === ADMIN_EMAIL ? "Default admin" : "Bootstrap user"}
-                      </span>
-                    ) : null}
                   </div>
 
                   <div className="grid gap-2.5 md:grid-cols-2">
